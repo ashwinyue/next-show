@@ -112,7 +112,15 @@ func (h *Handler) ChatStream(c *gin.Context) {
 	// 发送完成事件
 	_ = writer.SendComplete(req.SessionID, messageID)
 
-	// TODO: 持久化消息（用户消息 + 助手回复）
-	// h.biz.Sessions().AddMessage(ctx, req.SessionID, "user", req.Message)
-	// h.biz.Sessions().AddMessage(ctx, req.SessionID, "assistant", contentBuffer.String())
+	// 持久化消息
+	ctx := c.Request.Context()
+
+	// 保存用户消息
+	_, _ = h.biz.Sessions().AddMessage(ctx, req.SessionID, "user", req.Message)
+
+	// 保存助手回复
+	assistantContent := contentBuffer.String()
+	if assistantContent != "" {
+		_, _ = h.biz.Sessions().AddMessage(ctx, req.SessionID, "assistant", assistantContent)
+	}
 }
