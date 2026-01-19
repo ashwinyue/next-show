@@ -37,6 +37,9 @@ func (h *Handler) RegisterRoutes(r *gin.Engine) {
 	// Tenant 路由
 	h.registerTenantRoutes(v1)
 
+	// Auth 路由
+	h.registerAuthRoutes(v1)
+
 	// 健康检查
 	r.GET("/health", h.Health)
 }
@@ -125,6 +128,27 @@ func (h *Handler) registerWebSearchRoutes(r *gin.RouterGroup) {
 
 	// Settings 路由
 	h.registerSettingsRoutes(r)
+}
+
+// registerAuthRoutes 注册认证路由.
+func (h *Handler) registerAuthRoutes(r *gin.RouterGroup) {
+	auth := r.Group("/auth")
+	{
+		auth.POST("/register", h.Register)
+		auth.POST("/login", h.Login)
+		auth.POST("/logout", h.Logout)
+		auth.GET("/me", h.GetCurrentUser)
+		auth.PUT("/profile", h.UpdateProfile)
+		auth.POST("/password", h.ChangePassword)
+	}
+
+	// 用户管理（管理员）
+	users := r.Group("/users")
+	{
+		users.GET("", h.ListUsers)
+		users.GET("/:id", h.GetUser)
+		users.DELETE("/:id", h.DeleteUser)
+	}
 }
 
 // registerTenantRoutes 注册租户和 API Key 路由.

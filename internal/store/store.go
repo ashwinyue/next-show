@@ -18,6 +18,7 @@ type Store interface {
 	WebSearch() WebSearchStore
 	Settings() SettingsStore
 	Tenants() TenantStore
+	Users() UserStore
 }
 
 // dataStore 存储层实现.
@@ -80,4 +81,8 @@ func (s *dataStore) Settings() SettingsStore {
 
 func (s *dataStore) Tenants() TenantStore {
 	return newTenantStore(s.db)
+}
+
+func (s *dataStore) Users() UserStore {
+	return newUserStore(s.db)
 }

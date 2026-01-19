@@ -3,6 +3,7 @@ package biz
 
 import (
 	"github.com/ashwinyue/next-show/internal/biz/agent"
+	"github.com/ashwinyue/next-show/internal/biz/auth"
 	"github.com/ashwinyue/next-show/internal/biz/knowledge"
 	"github.com/ashwinyue/next-show/internal/biz/mcp"
 	"github.com/ashwinyue/next-show/internal/biz/provider"
@@ -26,6 +27,7 @@ type Biz interface {
 	Sessions() session.SessionBiz
 	Knowledge() knowledge.Biz
 	Tenants() tenant.Biz
+	Auth() auth.Biz
 }
 
 type biz struct {
@@ -38,6 +40,7 @@ type biz struct {
 	sessionBiz     session.SessionBiz
 	knowledgeBiz   knowledge.Biz
 	tenantBiz      tenant.Biz
+	authBiz        auth.Biz
 }
 
 // NewBiz 创建业务层实例.
@@ -52,6 +55,7 @@ func NewBiz(store store.Store, agentFactory *factory.AgentFactory, embedder embe
 		sessionBiz:     session.NewSessionBiz(store),
 		knowledgeBiz:   knowledge.NewBiz(store, embedder),
 		tenantBiz:      tenant.NewBiz(store),
+		authBiz:        auth.NewBiz(store, nil),
 	}
 }
 
@@ -89,4 +93,8 @@ func (b *biz) Knowledge() knowledge.Biz {
 
 func (b *biz) Tenants() tenant.Biz {
 	return b.tenantBiz
+}
+
+func (b *biz) Auth() auth.Biz {
+	return b.authBiz
 }
