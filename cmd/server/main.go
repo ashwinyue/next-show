@@ -20,13 +20,34 @@ import (
 	"github.com/mervyn/next-show/internal/biz"
 	handler "github.com/mervyn/next-show/internal/handler/http"
 	"github.com/mervyn/next-show/internal/model"
+	"github.com/mervyn/next-show/internal/pkg/trace"
 	"github.com/mervyn/next-show/internal/store"
 )
 
 func main() {
+	ctx := context.Background()
+
 	// 加载配置
 	if err := loadConfig(); err != nil {
 		log.Fatalf("failed to load config: %v", err)
+	}
+
+	// 初始化 Coze-Loop 追踪（可选）
+	var tracer *trace.CozeLoopTracer
+	if viper.GetBool("cozeloop.enabled") {
+		var err error
+		tracer, err = trace.NewCozeLoopTracer(&trace.CozeLoopConfig{
+			WorkspaceID: viper.GetString("cozeloop.workspace_id"),
+			APIToken:    viper.GetString("cozeloop.api_token"),
+			Endpoint:    viper.GetString("cozeloop.endpoint"),
+		})
+		if err != nil {
+			log.Printf("failed to init cozeloop tracer: %v", err)
+		} else {
+			tracer.Register()
+			defer tracer.Close(ctx)
+			log.Println("cozeloop tracer initialized")
+		}
 	}
 
 	// 初始化数据库

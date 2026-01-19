@@ -4,6 +4,13 @@ server:
   port: 8080
   mode: debug  # debug / release
 
+# Coze-Loop 可观测性配置
+cozeloop:
+  enabled: false  # 启用后需配置 workspace_id 和 api_token
+  workspace_id: ""  # 或通过环境变量 COZELOOP_WORKSPACE_ID
+  api_token: ""     # 或通过环境变量 COZELOOP_API_TOKEN
+  endpoint: ""      # 可选，默认使用官方端点
+
 database:
   host: localhost
   port: 5432
