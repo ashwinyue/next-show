@@ -3,16 +3,46 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/cloudwego/eino-ext/components/tool/duckduckgo"
 	"github.com/cloudwego/eino-ext/components/tool/duckduckgo/ddgsearch"
 	"github.com/cloudwego/eino/components/tool"
-	toolutils "github.com/cloudwego/eino/components/tool/utils"
 	"github.com/cloudwego/eino/schema"
 )
+
+// 工具描述模板
+const webSearchToolDesc = `搜索互联网获取实时信息和新闻。
+
+## 重要规则
+- 优先使用知识库搜索（knowledge_search / grep_chunks）
+- 仅当知识库无结果或需要实时信息时使用此工具
+
+## 功能特性
+- 实时网络搜索：搜索互联网获取最新信息
+- 支持多种搜索引擎：DuckDuckGo（无需API密钥）
+
+## 使用场景
+- 知识库搜索无结果时
+- 需要最新新闻、事件、更新
+- 需要验证或补充知识库信息
+- 搜索最新技术发展或趋势
+
+## 参数
+- query (必填): 搜索关键词
+
+## 返回
+- 搜索结果列表（最多 %d 条），包含标题、URL、摘要
+
+## 示例
+{"query": "eino agent framework latest updates"}
+{"query": "Go 1.22 new features"}
+
+## 提示
+- 返回结果可能被截断，如需完整内容请使用 web_fetch
+- 建议综合多个来源的信息`
 
 // WebSearchConfig 网络搜索配置.
 type WebSearchConfig struct {
@@ -37,132 +67,128 @@ type WebSearchInput struct {
 
 // WebSearchResult 单个搜索结果.
 type WebSearchResult struct {
+	Index       int    `json:"index"`
 	Title       string `json:"title"`
-	Description string `json:"description"`
 	URL         string `json:"url"`
+	Snippet     string `json:"snippet"`
+	Content     string `json:"content,omitempty"`
+	Source      string `json:"source,omitempty"`
+	PublishedAt string `json:"published_at,omitempty"`
 }
 
-// WebSearchOutput 网络搜索输出.
-type WebSearchOutput struct {
-	Query   string            `json:"query"`
-	Results []WebSearchResult `json:"results"`
-	Count   int               `json:"count"`
-	Summary string            `json:"summary"`
+// WebSearchTool 网络搜索工具.
+type WebSearchTool struct {
+	config *WebSearchConfig
+	ddg    *ddgsearch.DDGS
 }
 
-// NewWebSearchTool 创建网络搜索工具（使用 DuckDuckGo）.
-func NewWebSearchTool(config *WebSearchConfig) (tool.InvokableTool, error) {
+// NewWebSearchTool 创建网络搜索工具.
+func NewWebSearchTool(config *WebSearchConfig) (*WebSearchTool, error) {
 	if config == nil {
 		config = DefaultWebSearchConfig()
 	}
 
-	// 创建 DuckDuckGo 搜索工具
-	ddgTool, err := duckduckgo.NewTool(context.Background(), &duckduckgo.Config{
-		ToolName:   ToolWebSearch,
-		ToolDesc:   "搜索互联网获取实时信息",
-		MaxResults: config.MaxResults,
-		Region:     ddgsearch.Region(config.Region),
-		DDGConfig: &ddgsearch.Config{
-			Timeout:    config.Timeout,
-			MaxRetries: 3,
-		},
+	ddg, err := ddgsearch.New(&ddgsearch.Config{
+		Timeout:    config.Timeout,
+		MaxRetries: 3,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create duckduckgo tool: %w", err)
+		return nil, fmt.Errorf("failed to create ddg client: %w", err)
 	}
 
-	// 包装为自定义格式
-	return &webSearchToolWrapper{
-		ddgTool: ddgTool,
-		config:  config,
+	return &WebSearchTool{
+		config: config,
+		ddg:    ddg,
 	}, nil
 }
 
-type webSearchToolWrapper struct {
-	ddgTool tool.InvokableTool
-	config  *WebSearchConfig
-}
-
-func (w *webSearchToolWrapper) Info(ctx context.Context) (*schema.ToolInfo, error) {
+// Info 返回工具信息.
+func (t *WebSearchTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: ToolWebSearch,
-		Desc: `搜索互联网获取实时信息。
-
-用于：
-- 查询最新新闻和事件
-- 获取实时信息
-- 搜索知识库中没有的内容
-- 验证或补充现有信息
-
-使用时机：
-- 知识库搜索无结果时
-- 需要最新信息时
-- 需要外部数据源时`,
+		Desc: fmt.Sprintf(webSearchToolDesc, t.config.MaxResults),
+		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+			"query": {
+				Type: "string",
+				Desc: "搜索关键词",
+			},
+		}),
 	}, nil
 }
 
-func (w *webSearchToolWrapper) InvokableRun(ctx context.Context, arguments string, opts ...tool.Option) (string, error) {
-	// 直接调用 DuckDuckGo 工具
-	return w.ddgTool.InvokableRun(ctx, arguments, opts...)
-}
-
-// NewWebSearchToolSimple 创建简化版网络搜索工具.
-func NewWebSearchToolSimple(config *WebSearchConfig) tool.InvokableTool {
-	if config == nil {
-		config = DefaultWebSearchConfig()
+// InvokableRun 执行搜索.
+func (t *WebSearchTool) InvokableRun(ctx context.Context, arguments string, opts ...tool.Option) (string, error) {
+	// 解析输入
+	var input WebSearchInput
+	if err := json.Unmarshal([]byte(arguments), &input); err != nil {
+		return t.formatError(fmt.Sprintf("参数解析失败: %v", err)), nil
 	}
 
-	t, _ := toolutils.InferTool(
-		ToolWebSearch,
-		`搜索互联网获取实时信息。
+	if strings.TrimSpace(input.Query) == "" {
+		return t.formatError("query 参数不能为空"), nil
+	}
 
-用于：
-- 查询最新新闻和事件
-- 获取实时信息
-- 搜索知识库中没有的内容
+	// 执行搜索
+	results, err := t.ddg.Search(ctx, &ddgsearch.SearchParams{
+		Query:      input.Query,
+		Region:     ddgsearch.Region(t.config.Region),
+		MaxResults: t.config.MaxResults,
+	})
+	if err != nil {
+		return t.formatError(fmt.Sprintf("搜索失败: %v", err)), nil
+	}
 
-参数：
-- query: 搜索关键词`,
-		func(ctx context.Context, input *WebSearchInput) (*WebSearchOutput, error) {
-			// 创建 DuckDuckGo 客户端
-			ddg, err := ddgsearch.New(&ddgsearch.Config{
-				Timeout:    config.Timeout,
-				MaxRetries: 3,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to create ddg client: %w", err)
+	// 格式化输出
+	return t.formatOutput(input.Query, results), nil
+}
+
+// formatOutput 格式化搜索结果（参考 weknora）.
+func (t *WebSearchTool) formatOutput(query string, results *ddgsearch.SearchResponse) string {
+	var sb strings.Builder
+
+	sb.WriteString("=== Web Search Results ===\n")
+	sb.WriteString(fmt.Sprintf("Query: %s\n", query))
+	sb.WriteString(fmt.Sprintf("Found %d result(s)\n\n", len(results.Results)))
+
+	if len(results.Results) == 0 {
+		sb.WriteString("No results found.\n\n")
+		sb.WriteString("=== Next Steps ===\n")
+		sb.WriteString("- Try different search queries or keywords\n")
+		sb.WriteString("- Check if question can be answered from knowledge base\n")
+		return sb.String()
+	}
+
+	for i, r := range results.Results {
+		sb.WriteString(fmt.Sprintf("Result #%d:\n", i+1))
+		sb.WriteString(fmt.Sprintf("  Title: %s\n", r.Title))
+		sb.WriteString(fmt.Sprintf("  URL: %s\n", r.URL))
+		if r.Description != "" {
+			// 截断过长的描述
+			desc := r.Description
+			if len(desc) > 500 {
+				desc = desc[:500] + "..."
 			}
+			sb.WriteString(fmt.Sprintf("  Snippet: %s\n", desc))
+		}
+		sb.WriteString("\n")
+	}
 
-			// 执行搜索
-			results, err := ddg.Search(ctx, &ddgsearch.SearchParams{
-				Query:      input.Query,
-				Region:     ddgsearch.Region(config.Region),
-				MaxResults: config.MaxResults,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("search failed: %w", err)
-			}
+	sb.WriteString("=== Next Steps ===\n")
+	sb.WriteString("- ⚠️ Content may be truncated. Use web_fetch to get full page content.\n")
+	sb.WriteString("- Extract URLs from results and use web_fetch for detailed information.\n")
+	sb.WriteString("- Synthesize information from multiple sources for comprehensive answers.\n")
 
-			// 转换结果
-			output := &WebSearchOutput{
-				Query:   input.Query,
-				Results: make([]WebSearchResult, 0, len(results.Results)),
-				Count:   len(results.Results),
-			}
+	return sb.String()
+}
 
-			var summaryParts []string
-			for i, r := range results.Results {
-				output.Results = append(output.Results, WebSearchResult{
-					Title:       r.Title,
-					Description: r.Description,
-					URL:         r.URL,
-				})
-				summaryParts = append(summaryParts, fmt.Sprintf("%d. %s: %s", i+1, r.Title, r.Description))
-			}
-
-			output.Summary = strings.Join(summaryParts, "\n")
-			return output, nil
-		},
-	)
-	return t
+// formatError 格式化错误信息.
+func (t *WebSearchTool) formatError(errMsg string) string {
+	var sb strings.Builder
+	sb.WriteString("=== Web Search Error ===\n")
+	sb.WriteString(fmt.Sprintf("Error: %s\n\n", errMsg))
+	sb.WriteString("=== Suggestions ===\n")
+	sb.WriteString("- Check your search query\n")
+	sb.WriteString("- Try again later\n")
+	sb.WriteString("- Use knowledge_search as alternative\n")
+	return sb.String()
 }
