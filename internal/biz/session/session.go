@@ -71,7 +71,7 @@ func (b *sessionBiz) AddMessage(ctx context.Context, sessionID, role, content st
 	message := &model.Message{
 		ID:        uuid.New().String(),
 		SessionID: sessionID,
-		Role:      role,
+		Role:      model.MessageRole(role),
 		Content:   content,
 		CreatedAt: time.Now(),
 	}

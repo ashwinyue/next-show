@@ -12,6 +12,8 @@ import (
 
 // AgentBiz Agent 业务接口.
 type AgentBiz interface {
+	// SetRunner 设置 ADK Runner.
+	SetRunner(runner *adk.Runner)
 	// Chat 执行 Agent 对话，返回事件迭代器.
 	Chat(ctx context.Context, sessionID string, messages []adk.Message) (*adk.AsyncIterator[*adk.AgentEvent], error)
 }
