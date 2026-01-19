@@ -49,8 +49,8 @@ func (j *JSONMap) Scan(value interface{}) error {
 	return json.Unmarshal(bytes, j)
 }
 
-// JSONSlice JSON Slice 类型.
-type JSONSlice []interface{}
+// JSONSlice JSON Slice 类型（用于存储字符串数组）.
+type JSONSlice []string
 
 func (j JSONSlice) Value() (driver.Value, error) {
 	if j == nil {

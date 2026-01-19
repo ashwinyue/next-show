@@ -20,7 +20,7 @@ type MCPServer struct {
 	Description    string        `json:"description,omitempty" gorm:"type:text"`
 	TransportType  TransportType `json:"transport_type" gorm:"size:20;not null;default:stdio;index"`
 	Command        string        `json:"command,omitempty" gorm:"size:500"`
-	Args           JSONMap       `json:"args,omitempty" gorm:"type:jsonb"`
+	Args           JSONSlice     `json:"args,omitempty" gorm:"type:jsonb"`
 	Env            JSONMap       `json:"env,omitempty" gorm:"type:jsonb"`
 	ServerURL      string        `json:"server_url,omitempty" gorm:"size:500"`
 	CustomHeaders  JSONMap       `json:"custom_headers,omitempty" gorm:"type:jsonb"`

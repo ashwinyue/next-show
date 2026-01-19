@@ -6,8 +6,10 @@ require (
 	github.com/cloudwego/eino v0.7.21
 	github.com/cloudwego/eino-ext/components/model/ark v0.0.0-00010101000000-000000000000
 	github.com/cloudwego/eino-ext/components/model/openai v0.0.0-00010101000000-000000000000
+	github.com/cloudwego/eino-ext/components/tool/mcp v0.0.0-00010101000000-000000000000
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/uuid v1.6.0
+	github.com/mark3labs/mcp-go v0.43.2
 	github.com/spf13/viper v1.19.0
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.25.12
@@ -17,6 +19,7 @@ replace (
 	github.com/cloudwego/eino => ../
 	github.com/cloudwego/eino-ext/components/model/ark => ../eino-ext/components/model/ark
 	github.com/cloudwego/eino-ext/components/model/openai => ../eino-ext/components/model/openai
+	github.com/cloudwego/eino-ext/components/tool/mcp => ../eino-ext/components/tool/mcp
 )
 
 require (
@@ -40,6 +43,7 @@ require (
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/goph/emperror v0.17.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
+	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/pgx/v5 v5.6.0 // indirect
@@ -66,7 +70,7 @@ require (
 	github.com/slongfield/pyfmt v0.0.0-20220222012616-ea85ff4c361f // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
-	github.com/spf13/cast v1.6.0 // indirect
+	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
@@ -75,6 +79,7 @@ require (
 	github.com/volcengine/volcengine-go-sdk v1.1.49 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/yargevad/filepathx v1.0.0 // indirect
+	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/arch v0.11.0 // indirect
