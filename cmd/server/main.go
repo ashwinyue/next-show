@@ -32,11 +32,16 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
+	// 初始化本地日志追踪（开发环境）
+	if viper.GetBool("trace.log_enabled") {
+		logTracer := trace.NewLogTracer(viper.GetBool("trace.verbose"))
+		logTracer.Register()
+		log.Println("log tracer initialized")
+	}
+
 	// 初始化 Coze-Loop 追踪（可选）
-	var tracer *trace.CozeLoopTracer
 	if viper.GetBool("cozeloop.enabled") {
-		var err error
-		tracer, err = trace.NewCozeLoopTracer(&trace.CozeLoopConfig{
+		tracer, err := trace.NewCozeLoopTracer(&trace.CozeLoopConfig{
 			WorkspaceID: viper.GetString("cozeloop.workspace_id"),
 			APIToken:    viper.GetString("cozeloop.api_token"),
 			Endpoint:    viper.GetString("cozeloop.endpoint"),

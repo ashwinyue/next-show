@@ -4,6 +4,11 @@ server:
   port: 8080
   mode: debug  # debug / release
 
+# 追踪配置
+trace:
+  log_enabled: true   # 本地日志追踪（打印到控制台）
+  verbose: false      # 详细模式（显示完整内容）
+
 # Coze-Loop 可观测性配置
 cozeloop:
   enabled: false  # 启用后需配置 workspace_id 和 api_token
