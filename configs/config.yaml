@@ -1,0 +1,21 @@
+# Next-Show 配置文件
+
+server:
+  port: 8080
+  mode: debug  # debug / release
+
+database:
+  host: localhost
+  port: 5432
+  user: einoshow
+  password: einoshow
+  dbname: eino_scaffold
+  sslmode: disable
+  max_idle_conns: 10
+  max_open_conns: 100
+  conn_max_lifetime: 3600
+  auto_migrate: false  # 生产环境请使用 SQL 迁移脚本
+
+# 或直接使用 DSN
+# database:
+#   dsn: "host=localhost port=5432 user=einoshow password=einoshow dbname=eino_scaffold sslmode=disable"
