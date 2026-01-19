@@ -7,6 +7,7 @@ require (
 	github.com/cloudwego/eino-ext/callbacks/cozeloop v0.0.0-00010101000000-000000000000
 	github.com/cloudwego/eino-ext/components/model/ark v0.0.0-00010101000000-000000000000
 	github.com/cloudwego/eino-ext/components/model/openai v0.0.0-00010101000000-000000000000
+	github.com/cloudwego/eino-ext/components/tool/duckduckgo v0.0.0-00010101000000-000000000000
 	github.com/cloudwego/eino-ext/components/tool/mcp v0.0.0-00010101000000-000000000000
 	github.com/coze-dev/cozeloop-go v0.1.20
 	github.com/gin-gonic/gin v1.10.0
@@ -22,6 +23,7 @@ replace (
 	github.com/cloudwego/eino-ext/callbacks/cozeloop => ../eino-ext/callbacks/cozeloop
 	github.com/cloudwego/eino-ext/components/model/ark => ../eino-ext/components/model/ark
 	github.com/cloudwego/eino-ext/components/model/openai => ../eino-ext/components/model/openai
+	github.com/cloudwego/eino-ext/components/tool/duckduckgo => ../eino-ext/components/tool/duckduckgo
 	github.com/cloudwego/eino-ext/components/tool/mcp => ../eino-ext/components/tool/mcp
 )
 

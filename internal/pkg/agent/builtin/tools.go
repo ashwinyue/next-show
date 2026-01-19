@@ -156,6 +156,12 @@ func (r *ToolRegistry) RegisterBuiltinTools() error {
 	return nil
 }
 
+// RegisterWebSearchTool 注册网络搜索工具.
+func (r *ToolRegistry) RegisterWebSearchTool(config *WebSearchConfig) error {
+	t := NewWebSearchToolSimple(config)
+	return r.Register(t)
+}
+
 // DefaultRegistry 创建并初始化默认工具注册表.
 func DefaultRegistry() (*ToolRegistry, error) {
 	r := NewToolRegistry()
