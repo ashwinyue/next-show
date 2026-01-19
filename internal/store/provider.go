@@ -6,7 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/mervyn/next-show/internal/model"
+	"github.com/ashwinyue/next-show/internal/model"
 )
 
 // ProviderStore Provider 存储接口.

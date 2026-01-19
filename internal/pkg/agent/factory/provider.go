@@ -9,7 +9,7 @@ import (
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/model"
 
-	modelDef "github.com/mervyn/next-show/internal/model"
+	modelDef "github.com/ashwinyue/next-show/internal/model"
 )
 
 // ChatModelFactory ChatModel 工厂.

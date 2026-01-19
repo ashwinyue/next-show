@@ -1,5 +1,5 @@
-// Package builtin 提供内置工具和中间件.
-package builtin
+// Package tools 提供内置工具和中间件.
+package tools
 
 import (
 	"context"

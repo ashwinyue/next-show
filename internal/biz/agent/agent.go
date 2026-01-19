@@ -3,42 +3,77 @@ package agent
 
 import (
 	"context"
+	"sync"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/schema"
 
-	"github.com/mervyn/next-show/internal/store"
+	"github.com/ashwinyue/next-show/internal/pkg/agent/factory"
+	"github.com/ashwinyue/next-show/internal/store"
 )
 
 // AgentBiz Agent 业务接口.
 type AgentBiz interface {
-	// SetRunner 设置 ADK Runner.
-	SetRunner(runner *adk.Runner)
 	// Chat 执行 Agent 对话，返回事件迭代器.
 	Chat(ctx context.Context, sessionID string, messages []adk.Message) (*adk.AsyncIterator[*adk.AgentEvent], error)
+	// Close 关闭业务层，清理资源.
+	Close()
 }
 
 type agentBiz struct {
-	store  store.Store
-	runner *adk.Runner
+	store        store.Store
+	agentFactory *factory.AgentFactory
+	runners      map[string]*adk.Runner // agentID -> Runner 缓存
+	mu           sync.RWMutex
 }
 
 // NewAgentBiz 创建 Agent 业务实例.
-func NewAgentBiz(s store.Store) AgentBiz {
+func NewAgentBiz(s store.Store, af *factory.AgentFactory) AgentBiz {
 	return &agentBiz{
-		store: s,
+		store:        s,
+		agentFactory: af,
+		runners:      make(map[string]*adk.Runner),
 	}
 }
 
-// SetRunner 设置 ADK Runner（依赖注入）.
-func (b *agentBiz) SetRunner(runner *adk.Runner) {
-	b.runner = runner
+// getOrCreateRunner 获取或创建 Agent 的 Runner.
+func (b *agentBiz) getOrCreateRunner(ctx context.Context, agentID string) (*adk.Runner, error) {
+	b.mu.RLock()
+	if runner, ok := b.runners[agentID]; ok {
+		b.mu.RUnlock()
+		return runner, nil
+	}
+	b.mu.RUnlock()
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	// 双重检查
+	if runner, ok := b.runners[agentID]; ok {
+		return runner, nil
+	}
+
+	// 创建新 Runner
+	runner, err := b.agentFactory.CreateRunner(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	b.runners[agentID] = runner
+	return runner, nil
 }
 
 // Chat 执行 Agent 对话.
 func (b *agentBiz) Chat(ctx context.Context, sessionID string, messages []adk.Message) (*adk.AsyncIterator[*adk.AgentEvent], error) {
-	if b.runner == nil {
-		return nil, ErrRunnerNotConfigured
+	// 获取 Session 信息
+	session, err := b.store.Sessions().Get(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 获取或创建 Runner
+	runner, err := b.getOrCreateRunner(ctx, session.AgentID)
+	if err != nil {
+		return nil, err
 	}
 
 	// 获取历史消息
@@ -64,12 +99,16 @@ func (b *agentBiz) Chat(ctx context.Context, sessionID string, messages []adk.Me
 	allMessages = append(allMessages, messages...)
 
 	// 运行 Agent
-	iter := b.runner.Run(ctx, allMessages)
+	iter := runner.Run(ctx, allMessages)
 	return iter, nil
 }
 
-// ErrRunnerNotConfigured Runner 未配置错误.
-var ErrRunnerNotConfigured = &AgentError{Message: "agent runner not configured"}
+// Close 关闭业务层，清理资源.
+func (b *agentBiz) Close() {
+	if b.agentFactory != nil {
+		b.agentFactory.Close()
+	}
+}
 
 // AgentError Agent 错误.
 type AgentError struct {

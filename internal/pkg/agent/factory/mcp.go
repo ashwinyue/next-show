@@ -9,8 +9,8 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 	mcpclient "github.com/mark3labs/mcp-go/client"
 
-	modelDef "github.com/mervyn/next-show/internal/model"
-	"github.com/mervyn/next-show/internal/store"
+	modelDef "github.com/ashwinyue/next-show/internal/model"
+	"github.com/ashwinyue/next-show/internal/store"
 )
 
 // MCPToolFactory MCP 工具工厂.

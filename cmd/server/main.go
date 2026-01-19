@@ -11,17 +11,22 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cloudwego/eino/components/embedding"
+
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"github.com/mervyn/next-show/internal/biz"
-	handler "github.com/mervyn/next-show/internal/handler/http"
-	"github.com/mervyn/next-show/internal/model"
-	"github.com/mervyn/next-show/internal/pkg/trace"
-	"github.com/mervyn/next-show/internal/store"
+	"github.com/ashwinyue/next-show/internal/biz"
+	"github.com/ashwinyue/next-show/internal/biz/knowledge"
+	handler "github.com/ashwinyue/next-show/internal/handler/http"
+	"github.com/ashwinyue/next-show/internal/model"
+	"github.com/ashwinyue/next-show/internal/pkg/agent/factory"
+	embeddingpkg "github.com/ashwinyue/next-show/internal/pkg/embedding"
+	"github.com/ashwinyue/next-show/internal/pkg/trace"
+	"github.com/ashwinyue/next-show/internal/store"
 )
 
 func main() {
@@ -70,7 +75,30 @@ func main() {
 
 	// 依赖注入
 	s := store.NewStore(db)
-	b := biz.NewBiz(s)
+
+	// 初始化 Embedding 模型
+	var knowledgeSvc *knowledge.Service
+	if viper.GetString("embedding.api_key") != "" {
+		embedder, err := initEmbedding(ctx)
+		if err != nil {
+			log.Printf("failed to init embedding: %v, RAG tools will be disabled", err)
+		} else {
+			knowledgeSvc = knowledge.NewService(&knowledge.Config{
+				Store:          s,
+				EmbeddingModel: embedder,
+			})
+			log.Println("embedding model initialized")
+		}
+	}
+
+	// 创建 AgentFactory
+	af := factory.NewAgentFactoryWithConfig(&factory.AgentFactoryConfig{
+		Store:            s,
+		KnowledgeService: knowledgeSvc,
+		KnowledgeBaseIDs: viper.GetStringSlice("knowledge.default_kb_ids"),
+	})
+
+	b := biz.NewBiz(s, af)
 	h := handler.NewHandler(b)
 
 	// 初始化 Gin
@@ -184,5 +212,40 @@ func autoMigrate(db *gorm.DB) error {
 		&model.MCPServer{},
 		&model.MCPTool{},
 		&model.AgentTool{},
+		&model.KnowledgeBase{},
+		&model.KnowledgeDocument{},
+		&model.KnowledgeChunk{},
+		&model.Embedding{},
 	)
+}
+
+func initEmbedding(ctx context.Context) (embedding.Embedder, error) {
+	factory := embeddingpkg.NewFactory()
+
+	// 验证配置
+	provider := embeddingpkg.ProviderType(viper.GetString("embedding.provider"))
+	if provider == "" {
+		provider = embeddingpkg.ProviderDashScope
+	}
+
+	cfg := &embeddingpkg.Config{
+		Provider:   provider,
+		APIKey:     viper.GetString("embedding.api_key"),
+		BaseURL:    viper.GetString("embedding.base_url"),
+		Model:      viper.GetString("embedding.model"),
+		Dimensions: viper.GetInt("embedding.dimensions"),
+		Timeout:    time.Duration(viper.GetInt("embedding.timeout")) * time.Second,
+	}
+
+	if cfg.Model == "" {
+		cfg.Model = "text-embedding-v3"
+	}
+	if cfg.Dimensions == 0 {
+		cfg.Dimensions = 1024
+	}
+	if cfg.Timeout == 0 {
+		cfg.Timeout = 30 * time.Second
+	}
+
+	return factory.Create(ctx, cfg)
 }

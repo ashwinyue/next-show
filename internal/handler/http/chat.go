@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/mervyn/next-show/internal/pkg/sse"
+	"github.com/ashwinyue/next-show/internal/pkg/sse"
 )
 
 // ChatRequest Chat 请求.

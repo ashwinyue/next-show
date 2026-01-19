@@ -7,12 +7,14 @@ import "gorm.io/gorm"
 type Store interface {
 	Providers() ProviderStore
 	Agents() AgentStore
+	AgentRelations() AgentRelationStore
 	Sessions() SessionStore
 	Messages() MessageStore
 	Checkpoints() CheckpointStore
 	MCPServers() MCPServerStore
 	MCPTools() MCPToolStore
 	AgentTools() AgentToolStore
+	Knowledge() KnowledgeStore
 }
 
 // dataStore 存储层实现.
@@ -31,6 +33,10 @@ func (s *dataStore) Providers() ProviderStore {
 
 func (s *dataStore) Agents() AgentStore {
 	return newAgentStore(s.db)
+}
+
+func (s *dataStore) AgentRelations() AgentRelationStore {
+	return newAgentRelationStore(s.db)
 }
 
 func (s *dataStore) Sessions() SessionStore {
@@ -55,4 +61,8 @@ func (s *dataStore) MCPTools() MCPToolStore {
 
 func (s *dataStore) AgentTools() AgentToolStore {
 	return newAgentToolStore(s.db)
+}
+
+func (s *dataStore) Knowledge() KnowledgeStore {
+	return newKnowledgeStore(s.db)
 }

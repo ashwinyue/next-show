@@ -16,6 +16,7 @@ const (
 	AgentTypeSupervisor  AgentType = "supervisor"
 	AgentTypeSequential  AgentType = "sequential"
 	AgentTypeLoop        AgentType = "loop"
+	AgentTypeRAG         AgentType = "rag"
 	AgentTypeCustom      AgentType = "custom"
 )
 

@@ -6,7 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/mervyn/next-show/internal/model"
+	"github.com/ashwinyue/next-show/internal/model"
 )
 
 // CheckpointStore Checkpoint 存储接口（实现 compose.CheckPointStore）.

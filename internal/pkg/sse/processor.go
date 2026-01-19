@@ -9,7 +9,7 @@ import (
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/schema"
 
-	"github.com/mervyn/next-show/internal/pkg/agent/event"
+	"github.com/ashwinyue/next-show/internal/pkg/agent/event"
 )
 
 // EventProcessor 统一事件处理器接口.

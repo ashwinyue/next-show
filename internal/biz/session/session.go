@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/mervyn/next-show/internal/model"
-	"github.com/mervyn/next-show/internal/store"
+	"github.com/ashwinyue/next-show/internal/model"
+	"github.com/ashwinyue/next-show/internal/store"
 )
 
 // SessionBiz Session 业务接口.
