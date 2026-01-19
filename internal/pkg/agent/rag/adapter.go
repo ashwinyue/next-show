@@ -28,9 +28,27 @@ func (a *KnowledgeServiceAdapter) SemanticSearch(ctx context.Context, query stri
 		return nil, err
 	}
 
-	chunks := make([]*SourceChunk, 0, len(result.Chunks))
-	for _, r := range result.Chunks {
-		chunks = append(chunks, &SourceChunk{
+	return a.convertChunks(result.Chunks), nil
+}
+
+// HybridSearch 执行混合检索（向量 + BM25）.
+func (a *KnowledgeServiceAdapter) HybridSearch(ctx context.Context, query string, kbIDs []string, topK int) ([]*SourceChunk, error) {
+	result, err := a.service.HybridSearch(ctx, &agenttools.HybridSearchRequest{
+		Query:            query,
+		KnowledgeBaseIDs: kbIDs,
+		TopK:             topK,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return a.convertChunks(result.Chunks), nil
+}
+
+func (a *KnowledgeServiceAdapter) convertChunks(chunks []*agenttools.ChunkResult) []*SourceChunk {
+	result := make([]*SourceChunk, 0, len(chunks))
+	for _, r := range chunks {
+		result = append(result, &SourceChunk{
 			ChunkID:       r.ID,
 			DocumentID:    r.DocumentID,
 			Content:       r.Content,
@@ -38,6 +56,5 @@ func (a *KnowledgeServiceAdapter) SemanticSearch(ctx context.Context, query stri
 			DocumentTitle: r.DocumentTitle,
 		})
 	}
-
-	return chunks, nil
+	return result
 }

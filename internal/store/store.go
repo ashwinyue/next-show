@@ -15,6 +15,9 @@ type Store interface {
 	MCPTools() MCPToolStore
 	AgentTools() AgentToolStore
 	Knowledge() KnowledgeStore
+	WebSearch() WebSearchStore
+	Settings() SettingsStore
+	Tenants() TenantStore
 }
 
 // dataStore 存储层实现.
@@ -65,4 +68,16 @@ func (s *dataStore) AgentTools() AgentToolStore {
 
 func (s *dataStore) Knowledge() KnowledgeStore {
 	return newKnowledgeStore(s.db)
+}
+
+func (s *dataStore) WebSearch() WebSearchStore {
+	return newWebSearchStore(s.db)
+}
+
+func (s *dataStore) Settings() SettingsStore {
+	return newSettingsStore(s.db)
+}
+
+func (s *dataStore) Tenants() TenantStore {
+	return newTenantStore(s.db)
 }

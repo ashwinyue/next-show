@@ -78,8 +78,10 @@ func main() {
 
 	// 初始化 Embedding 模型
 	var knowledgeSvc *knowledge.Service
+	var embedder embedding.Embedder
 	if viper.GetString("embedding.api_key") != "" {
-		embedder, err := initEmbedding(ctx)
+		var err error
+		embedder, err = initEmbedding(ctx)
 		if err != nil {
 			log.Printf("failed to init embedding: %v, RAG tools will be disabled", err)
 		} else {
@@ -98,7 +100,7 @@ func main() {
 		KnowledgeBaseIDs: viper.GetStringSlice("knowledge.default_kb_ids"),
 	})
 
-	b := biz.NewBiz(s, af)
+	b := biz.NewBiz(s, af, embedder)
 	h := handler.NewHandler(b)
 
 	// 初始化 Gin

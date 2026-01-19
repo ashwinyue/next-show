@@ -19,6 +19,8 @@ type KnowledgeService interface {
 	SemanticSearch(ctx context.Context, req *SemanticSearchRequest) (*SemanticSearchResult, error)
 	// KeywordSearch 关键词搜索.
 	KeywordSearch(ctx context.Context, req *KeywordSearchRequest) (*KeywordSearchResult, error)
+	// HybridSearch 混合检索（向量 + BM25）.
+	HybridSearch(ctx context.Context, req *HybridSearchRequest) (*HybridSearchResult, error)
 	// ListChunks 列出文档分块.
 	ListChunks(ctx context.Context, req *ListChunksRequest) (*ListChunksResult, error)
 }
@@ -45,6 +47,21 @@ type KeywordSearchRequest struct {
 
 // KeywordSearchResult 关键词搜索结果.
 type KeywordSearchResult struct {
+	Chunks     []*ChunkResult `json:"chunks"`
+	TotalCount int            `json:"total_count"`
+}
+
+// HybridSearchRequest 混合检索请求.
+type HybridSearchRequest struct {
+	Query            string   `json:"query"`
+	KnowledgeBaseIDs []string `json:"knowledge_base_ids,omitempty"`
+	TopK             int      `json:"top_k,omitempty"`
+	VectorWeight     float64  `json:"vector_weight,omitempty"` // 向量搜索权重，默认 0.7
+	BM25Weight       float64  `json:"bm25_weight,omitempty"`   // BM25 搜索权重，默认 0.3
+}
+
+// HybridSearchResult 混合检索结果.
+type HybridSearchResult struct {
 	Chunks     []*ChunkResult `json:"chunks"`
 	TotalCount int            `json:"total_count"`
 }

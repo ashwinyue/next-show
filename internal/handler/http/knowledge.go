@@ -2,10 +2,12 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/ashwinyue/next-show/internal/biz/knowledge"
 	"github.com/ashwinyue/next-show/internal/model"
 )
 
@@ -155,4 +157,126 @@ func (h *Handler) ListChunks(c *gin.Context) {
 		"limit":  req.Limit,
 		"offset": req.Offset,
 	})
+}
+
+// ImportDocument 导入文档到知识库（JSON 请求）.
+func (h *Handler) ImportDocument(c *gin.Context) {
+	kbID := c.Param("id")
+	var req knowledge.ImportRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	req.KnowledgeBaseID = kbID
+
+	result, err := h.biz.Knowledge().ImportDocument(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, result)
+}
+
+// HybridSearchRequest 混合检索请求.
+type HybridSearchRequest struct {
+	Query        string  `json:"query" binding:"required"`
+	TopK         int     `json:"top_k,omitempty"`
+	VectorWeight float64 `json:"vector_weight,omitempty"`
+	BM25Weight   float64 `json:"bm25_weight,omitempty"`
+}
+
+// HybridSearch 混合检索（向量 + BM25）.
+func (h *Handler) HybridSearch(c *gin.Context) {
+	kbID := c.Param("id")
+	var req HybridSearchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 调用 knowledge service 的混合检索
+	result, err := h.biz.Knowledge().Search(c.Request.Context(), kbID, req.Query, req.TopK, req.VectorWeight, req.BM25Weight)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+// UploadDocument 上传文件到知识库（multipart/form-data）.
+func (h *Handler) UploadDocument(c *gin.Context) {
+	kbID := c.Param("id")
+
+	// 获取上传的文件
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required: " + err.Error()})
+		return
+	}
+	defer file.Close()
+
+	// 获取可选参数
+	title := c.PostForm("title")
+	if title == "" {
+		title = header.Filename
+	}
+
+	chunkSize := 512
+	chunkOverlap := 50
+	if cs := c.PostForm("chunk_size"); cs != "" {
+		if _, err := fmt.Sscanf(cs, "%d", &chunkSize); err != nil {
+			chunkSize = 512
+		}
+	}
+	if co := c.PostForm("chunk_overlap"); co != "" {
+		if _, err := fmt.Sscanf(co, "%d", &chunkOverlap); err != nil {
+			chunkOverlap = 50
+		}
+	}
+
+	req := &knowledge.ImportRequest{
+		KnowledgeBaseID: kbID,
+		Title:           title,
+		SourceType:      "file",
+		FileName:        header.Filename,
+		FileReader:      file,
+		ChunkSize:       chunkSize,
+		ChunkOverlap:    chunkOverlap,
+	}
+
+	result, err := h.biz.Knowledge().ImportDocument(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, result)
+}
+
+// SearchKnowledgeBaseRequest 搜索知识库请求.
+type SearchKnowledgeBaseRequest struct {
+	Query        string  `json:"query" binding:"required"`
+	TopK         int     `json:"top_k"`
+	VectorWeight float64 `json:"vector_weight"`
+	BM25Weight   float64 `json:"bm25_weight"`
+}
+
+// SearchKnowledgeBase 搜索知识库.
+func (h *Handler) SearchKnowledgeBase(c *gin.Context) {
+	kbID := c.Param("id")
+	var req SearchKnowledgeBaseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	searchResult, err := h.biz.Knowledge().Search(c.Request.Context(), kbID, req.Query, req.TopK, req.VectorWeight, req.BM25Weight)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, searchResult)
 }

@@ -41,7 +41,16 @@ type SourceChunk struct {
 // KnowledgeSearcher 知识检索接口.
 type KnowledgeSearcher interface {
 	SemanticSearch(ctx context.Context, query string, kbIDs []string, topK int) ([]*SourceChunk, error)
+	HybridSearch(ctx context.Context, query string, kbIDs []string, topK int) ([]*SourceChunk, error)
 }
+
+// SearchMode 检索模式.
+type SearchMode string
+
+const (
+	SearchModeSemantic SearchMode = "semantic" // 纯向量检索
+	SearchModeHybrid   SearchMode = "hybrid"   // 混合检索（向量 + BM25）
+)
 
 // GraphConfig RAG 图配置.
 type GraphConfig struct {
@@ -50,6 +59,9 @@ type GraphConfig struct {
 
 	// Searcher 知识检索器
 	Searcher KnowledgeSearcher
+
+	// SearchMode 检索模式，默认 hybrid
+	SearchMode SearchMode
 
 	// SystemPrompt 系统提示词模板
 	SystemPrompt string
@@ -83,6 +95,9 @@ func NewGraph(ctx context.Context, cfg *GraphConfig) (*Graph, error) {
 	}
 	if cfg.SystemPrompt == "" {
 		cfg.SystemPrompt = defaultRAGSystemPrompt
+	}
+	if cfg.SearchMode == "" {
+		cfg.SearchMode = SearchModeHybrid // 默认使用混合检索
 	}
 
 	g := &Graph{cfg: cfg}
@@ -174,7 +189,17 @@ func (g *Graph) retrieve(ctx context.Context, input *RAGInput) (*retrieveResult,
 		topK = g.cfg.DefaultTopK
 	}
 
-	chunks, err := g.cfg.Searcher.SemanticSearch(ctx, input.Query, input.KnowledgeBaseIDs, topK)
+	var chunks []*SourceChunk
+	var err error
+
+	// 根据配置选择检索模式
+	switch g.cfg.SearchMode {
+	case SearchModeHybrid:
+		chunks, err = g.cfg.Searcher.HybridSearch(ctx, input.Query, input.KnowledgeBaseIDs, topK)
+	default:
+		chunks, err = g.cfg.Searcher.SemanticSearch(ctx, input.Query, input.KnowledgeBaseIDs, topK)
+	}
+
 	if err != nil {
 		// 检索失败，返回空结果
 		return &retrieveResult{

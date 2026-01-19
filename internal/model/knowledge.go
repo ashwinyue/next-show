@@ -120,3 +120,38 @@ type Embedding struct {
 func (Embedding) TableName() string {
 	return "embeddings"
 }
+
+// KnowledgeTag 知识库标签.
+type KnowledgeTag struct {
+	ID              string    `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	KnowledgeBaseID string    `json:"knowledge_base_id" gorm:"type:uuid;not null;index"`
+	Name            string    `json:"name" gorm:"size:100;not null"`
+	Color           string    `json:"color" gorm:"size:20"`
+	Description     string    `json:"description" gorm:"size:500"`
+	ChunkCount      int       `json:"chunk_count" gorm:"default:0"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+
+	// 关联
+	KnowledgeBase *KnowledgeBase `json:"knowledge_base,omitempty" gorm:"foreignKey:KnowledgeBaseID"`
+}
+
+func (KnowledgeTag) TableName() string {
+	return "knowledge_tags"
+}
+
+// ChunkTag 分块-标签关联.
+type ChunkTag struct {
+	ID        string    `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	ChunkID   string    `json:"chunk_id" gorm:"type:uuid;not null;index"`
+	TagID     string    `json:"tag_id" gorm:"type:uuid;not null;index"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// 关联
+	Chunk *KnowledgeChunk `json:"chunk,omitempty" gorm:"foreignKey:ChunkID"`
+	Tag   *KnowledgeTag   `json:"tag,omitempty" gorm:"foreignKey:TagID"`
+}
+
+func (ChunkTag) TableName() string {
+	return "chunk_tags"
+}

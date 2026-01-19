@@ -18,7 +18,9 @@ type AgentStore interface {
 	Update(ctx context.Context, agent *model.Agent) error
 	Delete(ctx context.Context, id string) error
 	List(ctx context.Context, offset, limit int) ([]*model.Agent, int64, error)
+	ListAll(ctx context.Context) ([]*model.Agent, error)
 	ListEnabled(ctx context.Context) ([]*model.Agent, error)
+	ListByRole(ctx context.Context, role model.AgentRole) ([]*model.Agent, error)
 }
 
 type agentStore struct {
@@ -81,7 +83,23 @@ func (s *agentStore) List(ctx context.Context, offset, limit int) ([]*model.Agen
 
 func (s *agentStore) ListEnabled(ctx context.Context) ([]*model.Agent, error) {
 	var agents []*model.Agent
-	if err := s.db.WithContext(ctx).Where("is_enabled = ?", true).Find(&agents).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("is_enabled = ?", true).Order("created_at DESC").Find(&agents).Error; err != nil {
+		return nil, err
+	}
+	return agents, nil
+}
+
+func (s *agentStore) ListAll(ctx context.Context) ([]*model.Agent, error) {
+	var agents []*model.Agent
+	if err := s.db.WithContext(ctx).Order("created_at DESC").Find(&agents).Error; err != nil {
+		return nil, err
+	}
+	return agents, nil
+}
+
+func (s *agentStore) ListByRole(ctx context.Context, role model.AgentRole) ([]*model.Agent, error) {
+	var agents []*model.Agent
+	if err := s.db.WithContext(ctx).Where("agent_role = ?", role).Order("created_at DESC").Find(&agents).Error; err != nil {
 		return nil, err
 	}
 	return agents, nil

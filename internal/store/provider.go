@@ -17,7 +17,9 @@ type ProviderStore interface {
 	Update(ctx context.Context, provider *model.Provider) error
 	Delete(ctx context.Context, id string) error
 	List(ctx context.Context, offset, limit int) ([]*model.Provider, int64, error)
+	ListAll(ctx context.Context) ([]*model.Provider, error)
 	ListEnabled(ctx context.Context) ([]*model.Provider, error)
+	ListByCategory(ctx context.Context, category model.ModelCategory) ([]*model.Provider, error)
 }
 
 type providerStore struct {
@@ -73,6 +75,22 @@ func (s *providerStore) List(ctx context.Context, offset, limit int) ([]*model.P
 func (s *providerStore) ListEnabled(ctx context.Context) ([]*model.Provider, error) {
 	var providers []*model.Provider
 	if err := s.db.WithContext(ctx).Where("is_enabled = ?", true).Find(&providers).Error; err != nil {
+		return nil, err
+	}
+	return providers, nil
+}
+
+func (s *providerStore) ListAll(ctx context.Context) ([]*model.Provider, error) {
+	var providers []*model.Provider
+	if err := s.db.WithContext(ctx).Order("created_at DESC").Find(&providers).Error; err != nil {
+		return nil, err
+	}
+	return providers, nil
+}
+
+func (s *providerStore) ListByCategory(ctx context.Context, category model.ModelCategory) ([]*model.Provider, error) {
+	var providers []*model.Provider
+	if err := s.db.WithContext(ctx).Where("model_category = ? AND is_enabled = ?", category, true).Order("created_at DESC").Find(&providers).Error; err != nil {
 		return nil, err
 	}
 	return providers, nil

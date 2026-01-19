@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"github.com/cloudwego/eino/adk"
+	"github.com/cloudwego/eino/adk/prebuilt/deep"
+	"github.com/cloudwego/eino/adk/prebuilt/planexecute"
 	"github.com/cloudwego/eino/adk/prebuilt/supervisor"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
@@ -109,11 +111,11 @@ func (f *AgentFactory) CreateRunner(ctx context.Context, agentID string) (*adk.R
 	case modelDef.AgentTypeSequential:
 		adkAgent, err = f.createSequentialAgent(ctx, agent)
 	case modelDef.AgentTypePlanExecute:
-		// TODO: 实现 PlanExecute Agent
-		adkAgent, err = f.createChatModelAgent(ctx, agent, chatModel)
+		adkAgent, err = f.createPlanExecuteAgent(ctx, agent, chatModel)
 	case modelDef.AgentTypeDeep:
-		// TODO: 实现 Deep Agent
-		adkAgent, err = f.createChatModelAgent(ctx, agent, chatModel)
+		adkAgent, err = f.createDeepAgent(ctx, agent, chatModel)
+	case modelDef.AgentTypeDataAnalyst:
+		adkAgent, err = f.createDataAnalystAgent(ctx, agent, chatModel)
 	case modelDef.AgentTypeLoop:
 		// TODO: 实现 Loop Agent
 		adkAgent, err = f.createChatModelAgent(ctx, agent, chatModel)
@@ -283,6 +285,131 @@ func (f *AgentFactory) createSequentialAgent(ctx context.Context, agent *modelDe
 		Description: agent.Description,
 		SubAgents:   subAgents,
 	})
+}
+
+// createDeepAgent 创建 Deep 模式 Agent.
+func (f *AgentFactory) createDeepAgent(ctx context.Context, agent *modelDef.Agent, chatModel model.ToolCallingChatModel) (adk.Agent, error) {
+	// 加载工具
+	tools, err := f.loadAgentTools(ctx, agent.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 加载子 Agent
+	subAgents, err := f.loadSubAgents(ctx, agent.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	maxIter := agent.MaxIterations
+	if maxIter <= 0 {
+		maxIter = 50
+	}
+
+	var toolsConfig adk.ToolsConfig
+	if len(tools) > 0 {
+		toolsConfig.Tools = tools
+	}
+
+	return deep.New(ctx, &deep.Config{
+		Name:         agent.Name,
+		Description:  agent.Description,
+		ChatModel:    chatModel,
+		Instruction:  agent.SystemPrompt,
+		SubAgents:    subAgents,
+		ToolsConfig:  toolsConfig,
+		MaxIteration: maxIter,
+	})
+}
+
+// createPlanExecuteAgent 创建 Plan-Execute 模式 Agent.
+func (f *AgentFactory) createPlanExecuteAgent(ctx context.Context, agent *modelDef.Agent, chatModel model.ToolCallingChatModel) (adk.Agent, error) {
+	// 加载工具
+	tools, err := f.loadAgentTools(ctx, agent.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	var toolsConfig adk.ToolsConfig
+	if len(tools) > 0 {
+		toolsConfig.Tools = tools
+	}
+
+	maxIter := agent.MaxIterations
+	if maxIter <= 0 {
+		maxIter = 30
+	}
+
+	// 创建 Planner
+	planner, err := planexecute.NewPlanner(ctx, &planexecute.PlannerConfig{
+		ToolCallingChatModel: chatModel,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create planner: %w", err)
+	}
+
+	// 创建 Executor
+	executor, err := planexecute.NewExecutor(ctx, &planexecute.ExecutorConfig{
+		Model:         chatModel,
+		ToolsConfig:   toolsConfig,
+		MaxIterations: maxIter,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create executor: %w", err)
+	}
+
+	// 创建 Replanner
+	replanner, err := planexecute.NewReplanner(ctx, &planexecute.ReplannerConfig{
+		ChatModel: chatModel,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create replanner: %w", err)
+	}
+
+	// 组合 Plan-Execute-Replan
+	return planexecute.New(ctx, &planexecute.Config{
+		Planner:       planner,
+		Executor:      executor,
+		Replanner:     replanner,
+		MaxIterations: maxIter,
+	})
+}
+
+// createDataAnalystAgent 创建数据分析师 Agent.
+func (f *AgentFactory) createDataAnalystAgent(ctx context.Context, agent *modelDef.Agent, chatModel model.ToolCallingChatModel) (adk.Agent, error) {
+	// 数据分析师使用 ChatModelAgent + data_schema/data_analysis 工具
+	// 工具需要在调用时动态注入（因为需要 session 和 document 上下文）
+	return f.createChatModelAgent(ctx, agent, chatModel)
+}
+
+// loadSubAgents 加载子 Agent.
+func (f *AgentFactory) loadSubAgents(ctx context.Context, parentAgentID string) ([]adk.Agent, error) {
+	relations, err := f.store.AgentRelations().ListByParentWithChild(ctx, parentAgentID)
+	if err != nil {
+		return nil, fmt.Errorf("load agent relations: %w", err)
+	}
+
+	var subAgents []adk.Agent
+	for _, rel := range relations {
+		if rel.ChildAgent == nil {
+			continue
+		}
+
+		// 为子 Agent 创建 ChatModel
+		childChatModel, err := f.chatModelFactory.CreateChatModel(ctx, rel.ChildAgent.Provider, rel.ChildAgent.ModelName)
+		if err != nil {
+			return nil, fmt.Errorf("create chat model for sub-agent %s: %w", rel.ChildAgent.Name, err)
+		}
+
+		// 创建子 Agent
+		subAgent, err := f.createChatModelAgent(ctx, rel.ChildAgent, childChatModel)
+		if err != nil {
+			return nil, fmt.Errorf("create sub-agent %s: %w", rel.ChildAgent.Name, err)
+		}
+		subAgents = append(subAgents, subAgent)
+	}
+
+	return subAgents, nil
 }
 
 // createRAGAgent 创建 RAG Agent.
