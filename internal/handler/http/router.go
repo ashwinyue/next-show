@@ -66,6 +66,13 @@ func (h *Handler) registerAgentRoutes(r *gin.RouterGroup) {
 		agents.DELETE("/:id/tools/:tool_id", h.RemoveAgentTool)
 	}
 
+	// Agent 模板路由
+	agentTemplates := r.Group("/agent-templates")
+	{
+		agentTemplates.GET("", h.ListAgentTemplates)
+		agentTemplates.POST("/create", h.CreateAgentFromTemplate)
+	}
+
 	// 内置工具列表
 	r.GET("/tools/builtin", h.ListBuiltinTools)
 

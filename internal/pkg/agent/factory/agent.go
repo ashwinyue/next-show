@@ -36,11 +36,6 @@ type AgentFactoryConfig struct {
 	KnowledgeBaseIDs []string
 }
 
-// NewAgentFactory 创建 Agent 工厂.
-func NewAgentFactory(s store.Store) *AgentFactory {
-	return NewAgentFactoryWithConfig(&AgentFactoryConfig{Store: s})
-}
-
 // NewAgentFactoryWithConfig 使用配置创建 Agent 工厂.
 func NewAgentFactoryWithConfig(cfg *AgentFactoryConfig) *AgentFactory {
 	registry, _ := agenttools.DefaultRegistry()
@@ -117,8 +112,7 @@ func (f *AgentFactory) CreateRunner(ctx context.Context, agentID string) (*adk.R
 	case modelDef.AgentTypeDataAnalyst:
 		adkAgent, err = f.createDataAnalystAgent(ctx, agent, chatModel)
 	case modelDef.AgentTypeLoop:
-		// TODO: 实现 Loop Agent
-		adkAgent, err = f.createChatModelAgent(ctx, agent, chatModel)
+		adkAgent, err = f.createLoopAgent(ctx, agent, chatModel)
 	case modelDef.AgentTypeRAG:
 		adkAgent, err = f.createRAGAgent(ctx, agent, chatModel)
 	default:
@@ -372,6 +366,60 @@ func (f *AgentFactory) createPlanExecuteAgent(ctx context.Context, agent *modelD
 		Executor:      executor,
 		Replanner:     replanner,
 		MaxIterations: maxIter,
+	})
+}
+
+// createLoopAgent 创建 Loop 模式 Agent.
+// Loop Agent 会循环执行子 Agent 列表，直到达到最大迭代次数或任务完成。
+// 适用于需要重复执行的任务场景，如：
+// - 数据采集与处理循环
+// - 多轮分析与优化
+// - 迭代式任务执行
+func (f *AgentFactory) createLoopAgent(ctx context.Context, agent *modelDef.Agent, chatModel model.ToolCallingChatModel) (adk.Agent, error) {
+	// 加载子 Agent 关系（按 sort_order 排序）
+	relations, err := f.store.AgentRelations().ListByParentWithChild(ctx, agent.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load agent relations: %w", err)
+	}
+
+	if len(relations) == 0 {
+		return nil, fmt.Errorf("loop agent has no sub-agents configured")
+	}
+
+	// 按顺序创建所有子 Agent
+	var subAgents []adk.Agent
+	for _, rel := range relations {
+		if rel.ChildAgent == nil {
+			continue
+		}
+
+		// 为子 Agent 创建 ChatModel
+		childChatModel, err := f.chatModelFactory.CreateChatModel(ctx, rel.ChildAgent.Provider, rel.ChildAgent.ModelName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create chat model for sub-agent %s: %w", rel.ChildAgent.Name, err)
+		}
+
+		// 创建子 Agent
+		subAgent, err := f.createChatModelAgent(ctx, rel.ChildAgent, childChatModel)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create sub-agent %s: %w", rel.ChildAgent.Name, err)
+		}
+		subAgents = append(subAgents, subAgent)
+	}
+
+	// 设置最大迭代次数
+	maxIterations := agent.MaxIterations
+	if maxIterations <= 0 {
+		maxIterations = 10 // 默认最多循环 10 次
+	}
+
+	// 使用 Loop Agent 模式
+	// Loop Agent 会依次循环执行 subAgents 中的每个 Agent
+	return adk.NewLoopAgent(ctx, &adk.LoopAgentConfig{
+		Name:          agent.Name,
+		Description:   agent.Description,
+		SubAgents:     subAgents,
+		MaxIterations: maxIterations,
 	})
 }
 

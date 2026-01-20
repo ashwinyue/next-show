@@ -218,6 +218,14 @@ func autoMigrate(db *gorm.DB) error {
 		&model.KnowledgeDocument{},
 		&model.KnowledgeChunk{},
 		&model.Embedding{},
+		&model.KnowledgeTag{},
+		&model.ChunkTag{},
+		&model.User{},
+		&model.UserToken{},
+		&model.Tenant{},
+		&model.APIKey{},
+		&model.WebSearchConfig{},
+		&model.SystemSettings{},
 	)
 }
 
