@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/components/reetrever"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -19,7 +18,7 @@ type EvaluationCallbackHandler struct {
 type EvaluationData struct {
 	// 检索相关
 	Query            string
-	RetrievedDocs    []*RetrievedDoc
+	RetrievedDocIDs  []string
 	RetrievalStartAt time.Time
 	RetrievalLatency time.Duration
 	RetrievalError   error
@@ -30,14 +29,10 @@ type EvaluationData struct {
 	GenerationLatency time.Duration
 	GenerationError   error
 	TokenUsage        *schema.TokenUsage
-}
 
-// RetrievedDoc 检索到的文档.
-type RetrievedDoc struct {
-	ID       string
-	Content  string
-	Score    float64
-	Metadata map[string]any
+	// 原始输出（用于调试）
+	RetrievalRawOutput  any
+	GenerationRawOutput any
 }
 
 // NewEvaluationCallbackHandler 创建评估 Callback Handler.
@@ -48,18 +43,19 @@ func NewEvaluationCallbackHandler() *EvaluationCallbackHandler {
 }
 
 func (h *EvaluationCallbackHandler) OnStart(ctx context.Context, info *callbacks.RunInfo, input callbacks.CallbackInput) context.Context {
-	switch info.Component {
-	case callbacks.ComponentTypeRetriever:
+	// 根据节点名称记录不同的信息
+	switch info.Name {
+	case "retrieve", "retriever", "search":
 		// 记录检索开始时间
 		h.data.RetrievalStartAt = time.Now()
 		h.data.RetrievalError = nil
 
-		// 提取查询
-		if retrieverInput, ok := input.(*retriever.RetrieverInput); ok {
-			h.data.Query = retrieverInput.Query
+		// 尝试从输入中提取查询
+		if input != nil {
+			h.data.Query = extractString(input)
 		}
 
-	case callbacks.ComponentTypeChatModel:
+	case "generate", "chat", "llm", "answer":
 		// 记录生成开始时间
 		h.data.GenerationStartAt = time.Now()
 		h.data.GenerationError = nil
@@ -69,43 +65,25 @@ func (h *EvaluationCallbackHandler) OnStart(ctx context.Context, info *callbacks
 }
 
 func (h *EvaluationCallbackHandler) OnEnd(ctx context.Context, info *callbacks.RunInfo, output callbacks.CallbackOutput) context.Context {
-	switch info.Component {
-	case callbacks.ComponentTypeRetriever:
+	switch info.Name {
+	case "retrieve", "retriever", "search":
 		// 计算检索延迟
 		h.data.RetrievalLatency = time.Since(h.data.RetrievalStartAt)
+		h.data.RetrievalRawOutput = output
 
-		// 提取检索结果
-		if retrieverOutput, ok := output.(*[]*retriever.Document); ok {
-			h.data.RetrievedDocs = make([]*RetrievedDoc, 0, len(*retrieverOutput))
-			for _, doc := range *retrieverOutput {
-				retrievedDoc := &RetrievedDoc{
-					ID:       doc.ID,
-					Content:  doc.Content,
-					Score:    doc.Score,
-					Metadata: make(map[string]any),
-				}
-				// 复制元数据
-				for k, v := range doc.Metadata {
-					retrievedDoc.Metadata[k] = v
-				}
-				h.data.RetrievedDocs = append(h.data.RetrievedDocs, retrievedDoc)
-			}
+		// 尝试从输出中提取文档 ID
+		if output != nil {
+			h.data.RetrievedDocIDs = extractDocIDsFromOutput(output)
 		}
 
-	case callbacks.ComponentTypeChatModel:
+	case "generate", "chat", "llm", "answer":
 		// 计算生成延迟
 		h.data.GenerationLatency = time.Since(h.data.GenerationStartAt)
+		h.data.GenerationRawOutput = output
 
-		// 提取生成结果和 Token 使用
-		if chatResult, ok := output.(*schema.ChatResult); ok {
-			h.data.GeneratedAnswer = chatResult.Content
-			h.data.TokenUsage = chatResult.TokenUsage
-		}
-
-		// 提取 Token 使用（从 streaming 结果）
-		if streamOutput, ok := output.(*schema.StreamReader[*schema.ChatResult]); ok {
-			// TODO: 处理流式输出
-			_ = streamOutput
+		// 尝试从输出中提取生成的文本
+		if output != nil {
+			h.data.GeneratedAnswer = extractString(output)
 		}
 	}
 
@@ -113,12 +91,14 @@ func (h *EvaluationCallbackHandler) OnEnd(ctx context.Context, info *callbacks.R
 }
 
 func (h *EvaluationCallbackHandler) OnError(ctx context.Context, info *callbacks.RunInfo, err error) context.Context {
-	switch info.Component {
-	case callbacks.ComponentTypeRetriever:
+	switch info.Name {
+	case "retrieve", "retriever", "search":
 		h.data.RetrievalError = err
-	case callbacks.ComponentTypeChatModel:
+
+	case "generate", "chat", "llm", "answer":
 		h.data.GenerationError = err
 	}
+
 	return ctx
 }
 
@@ -133,13 +113,7 @@ func (h *EvaluationCallbackHandler) OnEndWithStreamOutput(ctx context.Context, i
 }
 
 func (h *EvaluationCallbackHandler) Needed(ctx context.Context, info *callbacks.RunInfo, timing callbacks.CallbackTiming) bool {
-	// 只处理检索和聊天模型组件
-	if info.Component != callbacks.ComponentTypeRetriever &&
-		info.Component != callbacks.ComponentTypeChatModel {
-		return false
-	}
-
-	// 处理所有时机
+	// 处理所有节点
 	return timing == callbacks.TimingOnStart ||
 		timing == callbacks.TimingOnEnd ||
 		timing == callbacks.TimingOnError
@@ -153,6 +127,36 @@ func (h *EvaluationCallbackHandler) GetData() *EvaluationData {
 // Reset 重置数据（用于复用 Handler）.
 func (h *EvaluationCallbackHandler) Reset() {
 	h.data = &EvaluationData{}
+}
+
+// 辅助函数：尝试从 any 中提取字符串
+func extractString(v any) string {
+	if v == nil {
+		return ""
+	}
+
+	switch val := v.(type) {
+	case string:
+		return val
+	case *string:
+		if val != nil {
+			return *val
+		}
+	case []byte:
+		return string(val)
+	default:
+		// 尝试通过反射或其他方式提取
+		return ""
+	}
+
+	return ""
+}
+
+// 辅助函数：尝试从输出中提取文档 ID
+func extractDocIDsFromOutput(output any) []string {
+	// TODO: 实现从各种输出类型中提取文档 ID 的逻辑
+	// 这需要根据实际的 retriever 输出类型来适配
+	return []string{}
 }
 
 // Ensure EvaluationCallbackHandler implements callbacks.Handler
