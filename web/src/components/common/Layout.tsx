@@ -6,9 +6,10 @@ import { Toaster } from '@/components/ui/toaster';
 export function Layout() {
   const { token } = useAuthStore();
 
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
+  // 认证拦截已关闭 - 开发模式
+  // if (!token) {
+  //   return <Navigate to="/login" replace />;
+  // }
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
