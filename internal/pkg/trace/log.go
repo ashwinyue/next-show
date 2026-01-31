@@ -63,7 +63,7 @@ func (t *LogTracer) buildHandler() callbacks.Handler {
 					colorCyan, timestamp, colorReset,
 					colorYellow, colorReset,
 					info.Name, args)
-			case components.ComponentOfChatModel:
+			case components.ComponentOfChatModel, components.ComponentOfAgenticModel:
 				fmt.Printf("%s[%s]%s %s▶ MODEL%s [%s] generating...\n",
 					colorCyan, timestamp, colorReset,
 					colorBlue, colorReset,
@@ -100,6 +100,19 @@ func (t *LogTracer) buildHandler() callbacks.Handler {
 					colorCyan, timestamp, colorReset,
 					colorBlue, colorReset,
 					info.Name, msg, usage)
+			case components.ComponentOfAgenticModel:
+				aco := model.ConvAgenticCallbackOutput(output)
+				if aco.Message != nil {
+					msg := formatAgenticMessage(aco.Message, t.verbose)
+					usage := ""
+					if aco.TokenUsage != nil {
+						usage = fmt.Sprintf(" (tokens: %d→%d)", aco.TokenUsage.PromptTokens, aco.TokenUsage.CompletionTokens)
+					}
+					fmt.Printf("%s[%s]%s %s◀ MODEL%s [%s] %s%s\n",
+						colorCyan, timestamp, colorReset,
+						colorBlue, colorReset,
+						info.Name, msg, usage)
+				}
 			default:
 				fmt.Printf("%s[%s]%s %s◀ %s%s [%s] completed\n",
 					colorCyan, timestamp, colorReset,
@@ -165,6 +178,63 @@ func formatMessage(m *schema.Message, verbose bool) string {
 			sb.WriteString(tc.Function.Name)
 		}
 		sb.WriteString("]")
+	}
+	return sb.String()
+}
+
+func formatAgenticMessage(m *schema.AgenticMessage, verbose bool) string {
+	if m == nil {
+		return "<nil>"
+	}
+	sb := strings.Builder{}
+	sb.WriteString("[")
+	sb.WriteString(string(m.Role))
+	sb.WriteString("] ")
+
+	// 遍历 ContentBlocks
+	for i, block := range m.ContentBlocks {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		switch block.Type {
+		case schema.ContentBlockTypeReasoning:
+			if block.Reasoning != nil {
+				content := block.Reasoning.Text
+				if len(content) > 100 && !verbose {
+					content = content[:100] + "..."
+				}
+				sb.WriteString("Thinking:\"")
+				sb.WriteString(content)
+				sb.WriteString("\"")
+			}
+		case schema.ContentBlockTypeAssistantGenText:
+			if block.AssistantGenText != nil {
+				content := block.AssistantGenText.Text
+				if len(content) > 100 && !verbose {
+					content = content[:100] + "..."
+				}
+				sb.WriteString("\"")
+				sb.WriteString(content)
+				sb.WriteString("\"")
+			}
+		case schema.ContentBlockTypeFunctionToolCall:
+			if block.FunctionToolCall != nil {
+				sb.WriteString("ToolCall:")
+				sb.WriteString(block.FunctionToolCall.Name)
+			}
+		case schema.ContentBlockTypeServerToolCall:
+			if block.ServerToolCall != nil {
+				sb.WriteString("ServerTool:")
+				sb.WriteString(block.ServerToolCall.Name)
+			}
+		case schema.ContentBlockTypeMCPToolCall:
+			if block.MCPToolCall != nil {
+				sb.WriteString("MCPTool:")
+				sb.WriteString(block.MCPToolCall.Name)
+			}
+		default:
+			sb.WriteString(string(block.Type))
+		}
 	}
 	return sb.String()
 }
