@@ -91,12 +91,6 @@ func (r *ToolRegistry) RegisterWebSearchTool(config *WebSearchConfig) error {
 	return r.Register(t)
 }
 
-// RegisterWebFetchTool 注册网页抓取工具.
-func (r *ToolRegistry) RegisterWebFetchTool(config *WebFetchConfig) error {
-	t := NewWebFetchTool(config)
-	return r.Register(t)
-}
-
 // RegisterKnowledgeSearchTool 注册语义搜索工具.
 func (r *ToolRegistry) RegisterKnowledgeSearchTool(config *KnowledgeSearchConfig) error {
 	t := NewKnowledgeSearchTool(config)

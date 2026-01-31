@@ -42,16 +42,12 @@ func (a *AgenticAdapter) handleStreamOutput(
 			chunk, err := output.Recv()
 			if err == io.EOF {
 				// 发送完成事件
-				if gw, ok := a.writer.(*GinWriter); ok {
-					gw.SendComplete("", "")
-				}
+				_ = a.writer.SendComplete("", "")
 				break
 			}
 			if err != nil {
 				// 发送错误事件
-				if gw, ok := a.writer.(*GinWriter); ok {
-					gw.SendError(err.Error())
-				}
+				_ = a.writer.SendError(err.Error())
 				break
 			}
 
