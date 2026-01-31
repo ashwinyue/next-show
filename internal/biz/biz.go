@@ -10,6 +10,7 @@ import (
 	"github.com/ashwinyue/next-show/internal/biz/provider"
 	"github.com/ashwinyue/next-show/internal/biz/session"
 	"github.com/ashwinyue/next-show/internal/biz/settings"
+	"github.com/ashwinyue/next-show/internal/biz/skill"
 	"github.com/ashwinyue/next-show/internal/biz/tenant"
 	"github.com/ashwinyue/next-show/internal/biz/websearch"
 	"github.com/ashwinyue/next-show/internal/store"
@@ -29,6 +30,7 @@ type Biz interface {
 	Tenants() tenant.Biz
 	Auth() auth.Biz
 	Evaluation() *evaluation.Service
+	Skills() skill.Biz
 }
 
 type biz struct {
@@ -43,6 +45,7 @@ type biz struct {
 	tenantBiz      tenant.Biz
 	authBiz        auth.Biz
 	evaluationSvc  *evaluation.Service
+	skillBiz       skill.Biz
 }
 
 // NewBiz 创建业务层实例.
@@ -60,6 +63,7 @@ func NewBiz(store store.Store, embedder embedding.Embedder) Biz {
 		tenantBiz:      tenant.NewBiz(store),
 		authBiz:        auth.NewBiz(store, nil),
 		evaluationSvc:  evaluation.NewService(store.DB(), agentBiz),
+		skillBiz:       skill.NewBiz(store),
 	}
 }
 
@@ -105,4 +109,8 @@ func (b *biz) Auth() auth.Biz {
 
 func (b *biz) Evaluation() *evaluation.Service {
 	return b.evaluationSvc
+}
+
+func (b *biz) Skills() skill.Biz {
+	return b.skillBiz
 }

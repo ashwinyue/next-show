@@ -19,6 +19,7 @@ type Store interface {
 	Settings() SettingsStore
 	Tenants() TenantStore
 	Users() UserStore
+	Skills() SkillStore
 	// DB 返回底层数据库连接（用于事务等场景）
 	DB() *gorm.DB
 }
@@ -87,6 +88,10 @@ func (s *dataStore) Tenants() TenantStore {
 
 func (s *dataStore) Users() UserStore {
 	return newUserStore(s.db)
+}
+
+func (s *dataStore) Skills() SkillStore {
+	return newSkillStore(s.db)
 }
 
 func (s *dataStore) DB() *gorm.DB {

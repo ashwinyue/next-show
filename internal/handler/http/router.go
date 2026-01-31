@@ -9,14 +9,14 @@ import (
 
 // Handler HTTP 处理器聚合.
 type Handler struct {
-	biz biz.Biz
+	biz               biz.Biz
 	evaluationHandler *EvaluationHandler
 }
 
 // NewHandler 创建 Handler 实例.
 func NewHandler(b biz.Biz) *Handler {
 	return &Handler{
-		biz: b,
+		biz:               b,
 		evaluationHandler: NewEvaluationHandler(b.Evaluation()),
 	}
 }
@@ -46,6 +46,9 @@ func (h *Handler) RegisterRoutes(r *gin.Engine) {
 
 	// Evaluation 路由
 	h.registerEvaluationRoutes(v1)
+
+	// Skill 路由
+	h.registerSkillRoutes(v1)
 
 	// 健康检查
 	r.GET("/health", h.Health)
@@ -290,5 +293,25 @@ func (h *Handler) registerEvaluationRoutes(r *gin.RouterGroup) {
 		evaluation.GET("/tasks/:id", h.evaluationHandler.GetTask)
 		evaluation.DELETE("/tasks/:id", h.evaluationHandler.DeleteTask)
 		evaluation.GET("/tasks/:id/results", h.evaluationHandler.GetTaskResults)
+	}
+}
+
+// registerSkillRoutes 注册 Skill 路由.
+func (h *Handler) registerSkillRoutes(r *gin.RouterGroup) {
+	skills := r.Group("/skills")
+	{
+		skills.GET("", h.ListSkills)
+		skills.POST("", h.CreateSkill)
+		skills.GET("/search", h.SearchSkills)
+		skills.GET("/category", h.ListSkillsByCategory)
+		skills.GET("/:id", h.GetSkill)
+		skills.PUT("/:id", h.UpdateSkill)
+		skills.DELETE("/:id", h.DeleteSkill)
+	}
+
+	// Agent 应用 Skill
+	agents := r.Group("/agents")
+	{
+		agents.POST("/:id/apply-skill", h.ApplySkillToAgent)
 	}
 }

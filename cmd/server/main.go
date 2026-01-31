@@ -216,6 +216,7 @@ func autoMigrate(db *gorm.DB) error {
 		&model.DatasetItem{},
 		&model.EvaluationTask{},
 		&model.EvaluationResult{},
+		&model.Skill{},
 	)
 }
 
