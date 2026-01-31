@@ -15,12 +15,6 @@ const (
 	EventTypeToolCall EventType = "tool_call"
 	// EventTypeToolResult 工具执行结果
 	EventTypeToolResult EventType = "tool_result"
-	// EventTypeReferences 知识引用
-	EventTypeReferences EventType = "references"
-	// EventTypeReflection 自我反思
-	EventTypeReflection EventType = "reflection"
-	// EventTypeAction Agent 动作（转移、中断、退出）
-	EventTypeAction EventType = "action"
 	// EventTypeComplete 完成事件
 	EventTypeComplete EventType = "stop"
 	// EventTypeError 错误事件
@@ -41,11 +35,4 @@ type Event struct {
 	SessionID          string                 `json:"session_id,omitempty"`
 	Data               map[string]interface{} `json:"data,omitempty"`
 	AssistantMessageID string                 `json:"assistant_message_id,omitempty"`
-}
-
-// PlanStep 计划步骤.
-type PlanStep struct {
-	ID          string `json:"id"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
 }
