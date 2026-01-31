@@ -72,10 +72,13 @@ func (h *Handler) DeleteSession(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
 
-// GetMessages 获取会话消息.
+// GetMessages 获取会话消息（对齐 WeKnora: /api/v1/messages/:id/load）.
 func (h *Handler) GetMessages(c *gin.Context) {
-	sessionID := c.Param("id")
-	messages, err := h.biz.Sessions().GetMessages(c.Request.Context(), sessionID)
+	sessionID := c.Param("session_id")
+	beforeTime := c.Query("before_time")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+
+	messages, err := h.biz.Sessions().GetMessages(c.Request.Context(), sessionID, beforeTime, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

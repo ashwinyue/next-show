@@ -10,11 +10,15 @@ import (
 // Handler HTTP 处理器聚合.
 type Handler struct {
 	biz biz.Biz
+	evaluationHandler *EvaluationHandler
 }
 
 // NewHandler 创建 Handler 实例.
 func NewHandler(b biz.Biz) *Handler {
-	return &Handler{biz: b}
+	return &Handler{
+		biz: b,
+		evaluationHandler: NewEvaluationHandler(b.Evaluation()),
+	}
 }
 
 // RegisterRoutes 注册 HTTP 路由.
@@ -39,6 +43,9 @@ func (h *Handler) RegisterRoutes(r *gin.Engine) {
 
 	// Auth 路由
 	h.registerAuthRoutes(v1)
+
+	// Evaluation 路由
+	h.registerEvaluationRoutes(v1)
 
 	// 健康检查
 	r.GET("/health", h.Health)
@@ -190,7 +197,7 @@ func (h *Handler) registerSettingsRoutes(r *gin.RouterGroup) {
 	}
 }
 
-// registerSessionRoutes 注册 Session 路由.
+// registerSessionRoutes 注册 Session 路由（对齐 WeKnora）.
 func (h *Handler) registerSessionRoutes(r *gin.RouterGroup) {
 	sessions := r.Group("/sessions")
 	{
@@ -198,14 +205,16 @@ func (h *Handler) registerSessionRoutes(r *gin.RouterGroup) {
 		sessions.GET("", h.ListSessions)
 		sessions.GET("/:id", h.GetSession)
 		sessions.DELETE("/:id", h.DeleteSession)
-		sessions.GET("/:id/messages", h.GetMessages)
 	}
 }
 
-// registerChatRoutes 注册 Chat 路由.
+// registerChatRoutes 注册 Chat 路由（对齐 WeKnora）.
 func (h *Handler) registerChatRoutes(r *gin.RouterGroup) {
-	r.POST("/chat", h.Chat)
-	r.POST("/chat/stream", h.ChatStream)
+	// Agent 聊天（对齐 WeKnora: /api/v1/agent-chat/:id）
+	r.POST("/agent-chat/:session_id", h.AgentChat)
+
+	// 消息列表（对齐 WeKnora: /api/v1/messages/:id/load）
+	r.GET("/messages/:session_id/load", h.GetMessages)
 }
 
 // registerKnowledgeRoutes 注册 Knowledge 路由.
@@ -262,4 +271,24 @@ func (h *Handler) registerChunkTagRoutes(r *gin.RouterGroup) {
 // Health 健康检查.
 func (h *Handler) Health(c *gin.Context) {
 	c.JSON(200, gin.H{"status": "ok"})
+}
+
+// registerEvaluationRoutes 注册评估路由.
+func (h *Handler) registerEvaluationRoutes(r *gin.RouterGroup) {
+	evaluation := r.Group("/evaluation")
+	{
+		// 数据集管理
+		evaluation.GET("/datasets", h.evaluationHandler.ListDatasets)
+		evaluation.POST("/datasets", h.evaluationHandler.CreateDataset)
+		evaluation.GET("/datasets/:id", h.evaluationHandler.GetDataset)
+		evaluation.DELETE("/datasets/:id", h.evaluationHandler.DeleteDataset)
+		evaluation.GET("/datasets/:id/items", h.evaluationHandler.GetDatasetItems)
+
+		// 评估任务
+		evaluation.POST("/run", h.evaluationHandler.RunEvaluation)
+		evaluation.GET("/tasks", h.evaluationHandler.ListTasks)
+		evaluation.GET("/tasks/:id", h.evaluationHandler.GetTask)
+		evaluation.DELETE("/tasks/:id", h.evaluationHandler.DeleteTask)
+		evaluation.GET("/tasks/:id/results", h.evaluationHandler.GetTaskResults)
+	}
 }

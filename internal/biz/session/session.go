@@ -19,7 +19,7 @@ type SessionBiz interface {
 	UpdateTitle(ctx context.Context, id, title string) error
 	Delete(ctx context.Context, id string) error
 	AddMessage(ctx context.Context, sessionID, role, content string) (*model.Message, error)
-	GetMessages(ctx context.Context, sessionID string) ([]*model.Message, error)
+	GetMessages(ctx context.Context, sessionID string, beforeTime string, limit int) ([]*model.Message, error)
 }
 
 type sessionBiz struct {
@@ -81,6 +81,15 @@ func (b *sessionBiz) AddMessage(ctx context.Context, sessionID, role, content st
 	return message, nil
 }
 
-func (b *sessionBiz) GetMessages(ctx context.Context, sessionID string) ([]*model.Message, error) {
-	return b.store.Messages().ListBySession(ctx, sessionID)
+func (b *sessionBiz) GetMessages(ctx context.Context, sessionID string, beforeTime string, limit int) ([]*model.Message, error) {
+	// 如果有 beforeTime，解析为时间戳
+	var beforeTimeFilter time.Time
+	if beforeTime != "" {
+		if t, err := time.Parse(time.RFC3339Nano, beforeTime); err == nil {
+			beforeTimeFilter = t
+		} else if t, err := time.Parse(time.RFC3339, beforeTime); err == nil {
+			beforeTimeFilter = t
+		}
+	}
+	return b.store.Messages().ListBySessionWithFilter(ctx, sessionID, beforeTimeFilter, limit)
 }
