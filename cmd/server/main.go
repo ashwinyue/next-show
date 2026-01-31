@@ -20,10 +20,8 @@ import (
 	"gorm.io/gorm/logger"
 
 	"github.com/ashwinyue/next-show/internal/biz"
-	"github.com/ashwinyue/next-show/internal/biz/knowledge"
 	handler "github.com/ashwinyue/next-show/internal/handler/http"
 	"github.com/ashwinyue/next-show/internal/model"
-	"github.com/ashwinyue/next-show/internal/pkg/agent/factory"
 	embeddingpkg "github.com/ashwinyue/next-show/internal/pkg/embedding"
 	"github.com/ashwinyue/next-show/internal/pkg/trace"
 	"github.com/ashwinyue/next-show/internal/store"
@@ -77,7 +75,6 @@ func main() {
 	s := store.NewStore(db)
 
 	// 初始化 Embedding 模型
-	var knowledgeSvc *knowledge.Service
 	var embedder embedding.Embedder
 	if viper.GetString("embedding.api_key") != "" {
 		var err error
@@ -85,22 +82,11 @@ func main() {
 		if err != nil {
 			log.Printf("failed to init embedding: %v, RAG tools will be disabled", err)
 		} else {
-			knowledgeSvc = knowledge.NewService(&knowledge.Config{
-				Store:          s,
-				EmbeddingModel: embedder,
-			})
 			log.Println("embedding model initialized")
 		}
 	}
 
-	// 创建 AgentFactory
-	af := factory.NewAgentFactoryWithConfig(&factory.AgentFactoryConfig{
-		Store:            s,
-		KnowledgeService: knowledgeSvc,
-		KnowledgeBaseIDs: viper.GetStringSlice("knowledge.default_kb_ids"),
-	})
-
-	b := biz.NewBiz(s, af, embedder)
+	b := biz.NewBiz(s, embedder)
 	h := handler.NewHandler(b)
 
 	// 初始化 Gin

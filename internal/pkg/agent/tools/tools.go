@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/cloudwego/eino/components/tool"
+	sequentialthinking "github.com/cloudwego/eino-ext/components/tool/sequentialthinking"
 )
 
 // ToolRegistry 工具注册表.
@@ -62,8 +63,14 @@ func (r *ToolRegistry) GetByNames(names []string) []tool.BaseTool {
 
 // RegisterBuiltinTools 注册所有内置工具.
 func (r *ToolRegistry) RegisterBuiltinTools() error {
+	// 使用 eino-ext 官方实现
+	thinkingTool, err := sequentialthinking.NewTool()
+	if err != nil {
+		return fmt.Errorf("failed to create sequential thinking tool: %w", err)
+	}
+
 	builtins := []tool.BaseTool{
-		NewSequentialThinkingTool(),
+		thinkingTool,
 		NewTodoWriteTool(),
 	}
 

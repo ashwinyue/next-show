@@ -14,6 +14,9 @@ type Writer interface {
 	Send(event Event) error
 	Flush()
 	SetHeaders()
+	SendStart(sessionID, messageID string) error
+	SendError(message string) error
+	SendComplete(sessionID, messageID string) error
 }
 
 // GinWriter 基于 Gin 的 SSE 写入器.

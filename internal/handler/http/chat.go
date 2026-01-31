@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/schema"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
@@ -50,16 +48,8 @@ func (h *Handler) ChatStream(c *gin.Context) {
 	writer := sse.NewGinWriter(c)
 	writer.SetHeaders()
 
-	// 创建事件处理器
-	processor := sse.NewDefaultEventProcessor()
-
-	// 创建事件上下文
+	// 创建内容缓冲器用于保存助手回复
 	contentBuffer := &strings.Builder{}
-	eventCtx := &sse.EventContext{
-		SessionID:     req.SessionID,
-		MessageID:     messageID,
-		ContentBuffer: contentBuffer,
-	}
 
 	// 发送开始事件
 	if err := writer.SendStart(req.SessionID, messageID); err != nil {
@@ -67,47 +57,8 @@ func (h *Handler) ChatStream(c *gin.Context) {
 		return
 	}
 
-	// 构建用户消息
-	userMessage := schema.UserMessage(req.Message)
-
-	// 调用 Agent 业务层
-	iter, err := h.biz.Agents().Chat(c.Request.Context(), req.SessionID, []adk.Message{userMessage})
-	if err != nil {
-		_ = writer.Send(sse.Event{
-			Type:      sse.EventTypeError,
-			ID:        messageID,
-			Error:     err.Error(),
-			SessionID: req.SessionID,
-		})
-		return
-	}
-
-	// 遍历事件流
-	for {
-		event, ok := iter.Next()
-		if !ok {
-			break
-		}
-
-		// 使用 EventProcessor 处理事件
-		sseEvents, err := processor.Process(event, eventCtx)
-		if err != nil {
-			_ = writer.Send(sse.Event{
-				Type:      sse.EventTypeError,
-				ID:        messageID,
-				Error:     err.Error(),
-				SessionID: req.SessionID,
-			})
-			return
-		}
-
-		// 发送 SSE 事件
-		for _, sseEvent := range sseEvents {
-			if err := writer.Send(sseEvent); err != nil {
-				return
-			}
-		}
-	}
+	// 调用 Agent 业务层（事件已在 SSE adapter 中处理）
+	err := h.biz.Agents().Chat(c.Request.Context(), req.SessionID, req.Message, writer)
 
 	// 发送完成事件
 	_ = writer.SendComplete(req.SessionID, messageID)
@@ -122,5 +73,11 @@ func (h *Handler) ChatStream(c *gin.Context) {
 	assistantContent := contentBuffer.String()
 	if assistantContent != "" {
 		_, _ = h.biz.Sessions().AddMessage(ctx, req.SessionID, "assistant", assistantContent)
+	}
+
+	// 检查是否有错误
+	if err != nil {
+		// 错误已在 Chat 方法中通过 SSE 发送，这里不需要再处理
+		return
 	}
 }

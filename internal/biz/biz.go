@@ -11,7 +11,6 @@ import (
 	"github.com/ashwinyue/next-show/internal/biz/settings"
 	"github.com/ashwinyue/next-show/internal/biz/tenant"
 	"github.com/ashwinyue/next-show/internal/biz/websearch"
-	"github.com/ashwinyue/next-show/internal/pkg/agent/factory"
 	"github.com/ashwinyue/next-show/internal/store"
 	"github.com/cloudwego/eino/components/embedding"
 )
@@ -44,9 +43,9 @@ type biz struct {
 }
 
 // NewBiz 创建业务层实例.
-func NewBiz(store store.Store, agentFactory *factory.AgentFactory, embedder embedding.Embedder) Biz {
+func NewBiz(store store.Store, embedder embedding.Embedder) Biz {
 	return &biz{
-		agentBiz:       agent.NewAgentBiz(store, agentFactory),
+		agentBiz:       agent.NewAgentBiz(store),
 		agentConfigBiz: agent.NewConfigBiz(store),
 		providerBiz:    provider.NewBiz(store),
 		mcpBiz:         mcp.NewBiz(store),
