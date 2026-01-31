@@ -19,6 +19,8 @@ type Store interface {
 	Settings() SettingsStore
 	Tenants() TenantStore
 	Users() UserStore
+	// DB 返回底层数据库连接（用于事务等场景）
+	DB() *gorm.DB
 }
 
 // dataStore 存储层实现.
@@ -85,4 +87,8 @@ func (s *dataStore) Tenants() TenantStore {
 
 func (s *dataStore) Users() UserStore {
 	return newUserStore(s.db)
+}
+
+func (s *dataStore) DB() *gorm.DB {
+	return s.db
 }

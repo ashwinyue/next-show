@@ -8,19 +8,28 @@ import (
 	"time"
 
 	"github.com/ashwinyue/next-show/internal/biz/evaluation/metrics"
+	agentcallbacks "github.com/ashwinyue/next-show/internal/pkg/agent/callbacks"
 	"github.com/ashwinyue/next-show/internal/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
+// AgentR Caller RAG Agent 调用接口.
+// 用于评估服务调用 RAG Agent 并收集数据.
+type AgentRCaller interface {
+	// CallWithEvaluationCallback 调用 RAG Agent 并使用评估 Callback 收集数据.
+	CallWithEvaluationCallback(ctx context.Context, agentID, knowledgeBaseID, query string, callback *agentcallbacks.EvaluationCallbackHandler) error
+}
+
 // Service 评估服务.
 type Service struct {
-	db *gorm.DB
+	db         *gorm.DB
+	agentCaller AgentRCaller // 用于调用 RAG Agent
 }
 
 // NewService 创建评估服务.
-func NewService(db *gorm.DB) *Service {
-	return &Service{db: db}
+func NewService(db *gorm.DB, agentCaller AgentRCaller) *Service {
+	return &Service{db: db, agentCaller: agentCaller}
 }
 
 // CreateDatasetRequest 创建数据集请求.
@@ -238,17 +247,36 @@ func (s *Service) executeEvaluation(ctx context.Context, task *model.EvaluationT
 
 // evaluateItem 评估单个条目.
 func (s *Service) evaluateItem(ctx context.Context, task *model.EvaluationTask, item model.DatasetItem) (*model.EvaluationResult, error) {
-	// TODO: 这里需要调用 RAG Agent 并传入 Callback Handler
-	// 目前先创建一个模拟结果
+	// 创建评估 Callback Handler
+	evalCallback := agentcallbacks.NewEvaluationCallbackHandler()
 
+	// 调用 RAG Agent 并传入 Callback Handler
+	err := s.agentCaller.CallWithEvaluationCallback(ctx, task.AgentID, task.KnowledgeBaseID, item.Query, evalCallback)
+	if err != nil {
+		return nil, fmt.Errorf("call RAG agent: %w", err)
+	}
+
+	// 从 Callback Handler 获取收集的数据
+	data := evalCallback.GetData()
+
+	// 构建评估结果
 	result := &model.EvaluationResult{
-		ID:     uuid.New().String(),
-		TaskID: task.ID,
-		ItemID: item.ID,
-		// RetrievedDocIDs:  <从 RAG Agent 获取>
-		// GeneratedAnswer:  <从 RAG Agent 获取>
-		RetrievalOK:  true,
-		GenerationOK: true,
+		ID:                uuid.New().String(),
+		TaskID:            task.ID,
+		ItemID:            item.ID,
+		RetrievedDocIDs:   data.RetrievedDocIDs,
+		GeneratedAnswer:   data.GeneratedAnswer,
+		RetrievalLatency:  int64(data.RetrievalLatency.Milliseconds()),
+		GenerationLatency: int64(data.GenerationLatency.Milliseconds()),
+		RetrievalOK:       data.RetrievalError == nil,
+		GenerationOK:      data.GenerationError == nil,
+	}
+
+	// 记录 Token 使用情况
+	if data.TokenUsage != nil {
+		result.PromptTokens = int(data.TokenUsage.PromptTokens)
+		result.CompletionTokens = int(data.TokenUsage.CompletionTokens)
+		result.TotalTokens = int(data.TokenUsage.TotalTokens)
 	}
 
 	// 计算指标

@@ -10,9 +10,10 @@ import (
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 
+	agentcallbacks "github.com/ashwinyue/next-show/internal/pkg/agent/callbacks"
 	"github.com/ashwinyue/next-show/internal/model"
 	"github.com/ashwinyue/next-show/internal/pkg/agent/agentic"
-	agentmodel "github.com/ashwinyue/next-show/internal/pkg/agent/model"
+	"github.com/ashwinyue/next-show/internal/pkg/models"
 	"github.com/ashwinyue/next-show/internal/pkg/sse"
 	"github.com/ashwinyue/next-show/internal/store"
 )
@@ -21,6 +22,8 @@ import (
 type AgentBiz interface {
 	// Chat 执行 Agent 对话，通过 SSE writer 发送事件.
 	Chat(ctx context.Context, sessionID string, content string, sseWriter sse.Writer) error
+	// CallWithEvaluationCallback 调用 RAG Agent 并使用评估 Callback 收集数据.
+	CallWithEvaluationCallback(ctx context.Context, agentID, knowledgeBaseID, query string, callback *agentcallbacks.EvaluationCallbackHandler) error
 	// Close 关闭业务层，清理资源.
 	Close()
 }
@@ -63,14 +66,14 @@ func (b *agentBiz) getOrCreateAgent(ctx context.Context, agent *model.Agent) (*a
 	}
 
 	// 创建 AgenticModel
-	modelCfg := &agentmodel.ModelConfig{
+	modelCfg := &models.ModelConfig{
 		Provider: provider.Name,
 		Model:    agent.ModelName,
 		APIKey:   provider.APIKey,
 		BaseURL:  provider.BaseURL,
 	}
 
-	agenticModel, err := agentmodel.CreateAgenticModel(ctx, modelCfg)
+	agenticModel, err := models.CreateAgenticModel(ctx, modelCfg)
 	if err != nil {
 		return nil, fmt.Errorf("create agentic model: %w", err)
 	}
@@ -169,6 +172,38 @@ func (b *agentBiz) Close() {
 
 	// 清理所有 Agent
 	b.runners = nil
+}
+
+// CallWithEvaluationCallback 调用 RAG Agent 并使用评估 Callback 收集数据.
+func (b *agentBiz) CallWithEvaluationCallback(ctx context.Context, agentID, knowledgeBaseID, query string, callback *agentcallbacks.EvaluationCallbackHandler) error {
+	// 获取 Agent 配置
+	agent, err := b.store.Agents().Get(ctx, agentID)
+	if err != nil {
+		return fmt.Errorf("get agent: %w", err)
+	}
+
+	// 获取或创建 Agent 实例
+	agentInst, err := b.getOrCreateAgent(ctx, agent)
+	if err != nil {
+		return fmt.Errorf("create agent: %w", err)
+	}
+
+	// 创建临时 session 用于消息转换
+	tempSession := &model.Session{
+		Agent: agent,
+	}
+
+	// 转换消息为 AgenticMessage
+	messages := convertToAgenticMessages(tempSession, query)
+
+	// 使用 Callback 调用 Agent
+	cb := compose.WithCallbacks(callback)
+	_, err = agentInst.Generate(ctx, messages, cb)
+	if err != nil {
+		return fmt.Errorf("agent generate: %w", err)
+	}
+
+	return nil
 }
 
 // AgentError Agent 错误.

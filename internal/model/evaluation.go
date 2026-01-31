@@ -109,10 +109,12 @@ type EvaluationResult struct {
 	RetrievalOK      bool     `json:"retrieval_ok"`
 
 	// 生成结果
-	GeneratedAnswer   string `json:"generated_answer" gorm:"type:text"`
-	GenerationLatency int64  `json:"generation_latency_ms"` // 毫秒
-	GenerationOK      bool   `json:"generation_ok"`
-	TotalTokensUsed   int    `json:"total_tokens_used"`
+	GeneratedAnswer    string `json:"generated_answer" gorm:"type:text"`
+	GenerationLatency  int64  `json:"generation_latency_ms"` // 毫秒
+	GenerationOK       bool   `json:"generation_ok"`
+	PromptTokens       int    `json:"prompt_tokens"`
+	CompletionTokens   int    `json:"completion_tokens"`
+	TotalTokens        int    `json:"total_tokens"`
 
 	// 评估指标
 	Metrics EvaluationMetrics `json:"metrics" gorm:"embedded;embeddedPrefix:metric_"`

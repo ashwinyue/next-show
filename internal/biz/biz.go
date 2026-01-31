@@ -4,6 +4,7 @@ package biz
 import (
 	"github.com/ashwinyue/next-show/internal/biz/agent"
 	"github.com/ashwinyue/next-show/internal/biz/auth"
+	"github.com/ashwinyue/next-show/internal/biz/evaluation"
 	"github.com/ashwinyue/next-show/internal/biz/knowledge"
 	"github.com/ashwinyue/next-show/internal/biz/mcp"
 	"github.com/ashwinyue/next-show/internal/biz/provider"
@@ -27,6 +28,7 @@ type Biz interface {
 	Knowledge() knowledge.Biz
 	Tenants() tenant.Biz
 	Auth() auth.Biz
+	Evaluation() *evaluation.Service
 }
 
 type biz struct {
@@ -40,12 +42,14 @@ type biz struct {
 	knowledgeBiz   knowledge.Biz
 	tenantBiz      tenant.Biz
 	authBiz        auth.Biz
+	evaluationSvc  *evaluation.Service
 }
 
 // NewBiz 创建业务层实例.
 func NewBiz(store store.Store, embedder embedding.Embedder) Biz {
+	agentBiz := agent.NewAgentBiz(store)
 	return &biz{
-		agentBiz:       agent.NewAgentBiz(store),
+		agentBiz:       agentBiz,
 		agentConfigBiz: agent.NewConfigBiz(store),
 		providerBiz:    provider.NewBiz(store),
 		mcpBiz:         mcp.NewBiz(store),
@@ -55,6 +59,7 @@ func NewBiz(store store.Store, embedder embedding.Embedder) Biz {
 		knowledgeBiz:   knowledge.NewBiz(store, embedder),
 		tenantBiz:      tenant.NewBiz(store),
 		authBiz:        auth.NewBiz(store, nil),
+		evaluationSvc:  evaluation.NewService(store.DB(), agentBiz),
 	}
 }
 
@@ -96,4 +101,8 @@ func (b *biz) Tenants() tenant.Biz {
 
 func (b *biz) Auth() auth.Biz {
 	return b.authBiz
+}
+
+func (b *biz) Evaluation() *evaluation.Service {
+	return b.evaluationSvc
 }

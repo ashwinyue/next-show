@@ -1,5 +1,5 @@
-// Package model 提供 AgenticModel 工厂，支持 ARK 和 OpenAI。
-package model
+// Package models 提供 AgenticModel 工厂，支持 ARK 和 OpenAI。
+package models
 
 import (
 	"context"

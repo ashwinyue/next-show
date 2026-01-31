@@ -1,5 +1,5 @@
-// Package evaluation 提供评估专用的 Eino Callback Handler.
-package evaluation
+// Package callbacks 提供 Agent 相关的 Callback Handler.
+package callbacks
 
 import (
 	"context"
@@ -81,9 +81,10 @@ func (h *EvaluationCallbackHandler) OnEnd(ctx context.Context, info *callbacks.R
 		h.data.GenerationLatency = time.Since(h.data.GenerationStartAt)
 		h.data.GenerationRawOutput = output
 
-		// 尝试从输出中提取生成的文本
+		// 尝试从输出中提取生成的文本和 Token 使用情况
 		if output != nil {
 			h.data.GeneratedAnswer = extractString(output)
+			h.data.TokenUsage = extractTokenUsage(output)
 		}
 	}
 
@@ -152,11 +153,121 @@ func extractString(v any) string {
 	return ""
 }
 
+// 辅助函数：尝试从输出中提取 Token 使用情况
+func extractTokenUsage(v any) *schema.TokenUsage {
+	if v == nil {
+		return nil
+	}
+
+	// 尝试直接转换为 TokenUsage
+	if tu, ok := v.(*schema.TokenUsage); ok {
+		return tu
+	}
+
+	// 尝试从 map 中提取
+	if m, ok := v.(map[string]any); ok {
+		if promptTokens, ok1 := m["prompt_tokens"]; ok1 {
+			if completionTokens, ok2 := m["completion_tokens"]; ok2 {
+				if totalTokens, ok3 := m["total_tokens"]; ok3 {
+					prompt := int64(0)
+					completion := int64(0)
+					total := int64(0)
+
+					switch v := promptTokens.(type) {
+					case int:
+						prompt = int64(v)
+					case int64:
+						prompt = v
+					case float64:
+						prompt = int64(v)
+					}
+
+					switch v := completionTokens.(type) {
+					case int:
+						completion = int64(v)
+					case int64:
+						completion = v
+					case float64:
+						completion = int64(v)
+					}
+
+					switch v := totalTokens.(type) {
+					case int:
+						total = int64(v)
+					case int64:
+						total = v
+					case float64:
+						total = int64(v)
+					}
+
+					return &schema.TokenUsage{
+						PromptTokens:     int(prompt),
+						CompletionTokens: int(completion),
+						TotalTokens:      int(total),
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 // 辅助函数：尝试从输出中提取文档 ID
 func extractDocIDsFromOutput(output any) []string {
-	// TODO: 实现从各种输出类型中提取文档 ID 的逻辑
-	// 这需要根据实际的 retriever 输出类型来适配
-	return []string{}
+	if output == nil {
+		return []string{}
+	}
+
+	var docIDs []string
+
+	// 尝试从 []*schema.Document 提取
+	if docs, ok := output.([]*schema.Document); ok {
+		for _, doc := range docs {
+			if doc.ID != "" {
+				docIDs = append(docIDs, doc.ID)
+			}
+		}
+		return docIDs
+	}
+
+	// 尝试从 []schema.Document 提取（非指针）
+	if docs, ok := output.([]schema.Document); ok {
+		for _, doc := range docs {
+			if doc.ID != "" {
+				docIDs = append(docIDs, doc.ID)
+			}
+		}
+		return docIDs
+	}
+
+	// 尝试从 map 中提取（某些工具可能返回 map）
+	if m, ok := output.(map[string]any); ok {
+		// 尝试常见的键名
+		for _, key := range []string{"docs", "documents", "chunks", "results"} {
+			if val, exists := m[key]; exists {
+				if ids := extractDocIDsFromOutput(val); len(ids) > 0 {
+					return ids
+				}
+			}
+		}
+	}
+
+	// 尝试从字符串切片提取（某些工具可能直接返回 ID 列表）
+	if ids, ok := output.([]string); ok {
+		return ids
+	}
+
+	// 尝试从 interface 切片提取
+	if items, ok := output.([]any); ok {
+		for _, item := range items {
+			if id, ok := item.(string); ok {
+				docIDs = append(docIDs, id)
+			}
+		}
+	}
+
+	return docIDs
 }
 
 // Ensure EvaluationCallbackHandler implements callbacks.Handler

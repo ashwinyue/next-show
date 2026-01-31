@@ -212,6 +212,10 @@ func autoMigrate(db *gorm.DB) error {
 		&model.APIKey{},
 		&model.WebSearchConfig{},
 		&model.SystemSettings{},
+		&model.EvaluationDataset{},
+		&model.DatasetItem{},
+		&model.EvaluationTask{},
+		&model.EvaluationResult{},
 	)
 }
 
