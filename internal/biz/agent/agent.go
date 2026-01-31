@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
-	"github.com/cloudwego/eino/components/tool"
 
 	"github.com/ashwinyue/next-show/internal/model"
 	"github.com/ashwinyue/next-show/internal/pkg/agent/agentic"

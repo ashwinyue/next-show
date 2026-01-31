@@ -120,17 +120,12 @@ func (h *Handler) registerMCPRoutes(r *gin.RouterGroup) {
 	h.registerWebSearchRoutes(r)
 }
 
-// registerWebSearchRoutes 注册 WebSearch 路由.
+// registerWebSearchRoutes 注册 WebSearch 路由（对齐 WeKnora）.
 func (h *Handler) registerWebSearchRoutes(r *gin.RouterGroup) {
 	webSearch := r.Group("/web-search")
 	{
-		webSearch.GET("", h.ListWebSearchConfigs)
-		webSearch.POST("", h.CreateWebSearchConfig)
-		webSearch.GET("/default", h.GetDefaultWebSearchConfig)
-		webSearch.GET("/:id", h.GetWebSearchConfig)
-		webSearch.PUT("/:id", h.UpdateWebSearchConfig)
-		webSearch.DELETE("/:id", h.DeleteWebSearchConfig)
-		webSearch.PUT("/:id/default", h.SetDefaultWebSearchConfig)
+		webSearch.GET("/config", h.GetWebSearchConfig)
+		webSearch.PUT("/config", h.UpdateWebSearchConfig)
 	}
 
 	// Settings 路由

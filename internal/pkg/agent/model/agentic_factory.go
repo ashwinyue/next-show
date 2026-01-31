@@ -12,13 +12,13 @@ import (
 
 // ModelConfig 模型配置。
 type ModelConfig struct {
-	Provider  string   `json:"provider"` // "openai", "ark"
-	Model     string   `json:"model"`
-	APIKey    string   `json:"api_key"`
-	BaseURL   string   `json:"base_url,omitempty"`
+	Provider string `json:"provider"` // "openai", "ark"
+	Model    string `json:"model"`
+	APIKey   string `json:"api_key"`
+	BaseURL  string `json:"base_url,omitempty"`
 
 	// Agentic 特有配置
-	Thinking    bool     `json:"thinking,omitempty"`    // 启用推理模式
+	Thinking    bool     `json:"thinking,omitempty"`     // 启用推理模式
 	ServerTools []string `json:"server_tools,omitempty"` // ["web_search"]
 }
 

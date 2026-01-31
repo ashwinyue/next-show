@@ -36,9 +36,9 @@ const webFetchToolDesc = `抓取网页的完整内容（支持动态渲染）。
 
 // WebFetchConfig 网页抓取配置.
 type WebFetchConfig struct {
-	Timeout         time.Duration `json:"timeout"`
-	Headless        bool          `json:"headless"`
-	ChromePath      string        `json:"chrome_path"`
+	Timeout          time.Duration `json:"timeout"`
+	Headless         bool          `json:"headless"`
+	ChromePath       string        `json:"chrome_path"`
 	ExtractChatModel tool.BaseTool `json:"-"` // 可选：用于智能提取内容的模型
 }
 

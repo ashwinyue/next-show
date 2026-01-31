@@ -44,7 +44,7 @@ type User struct {
 	Tenant *Tenant `json:"tenant,omitempty" gorm:"foreignKey:TenantID"`
 }
 
-func (User) TableName() string {
+func (*User) TableName() string {
 	return "users"
 }
 

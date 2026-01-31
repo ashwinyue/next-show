@@ -5,8 +5,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 )
 

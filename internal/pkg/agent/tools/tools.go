@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/cloudwego/eino/components/tool"
 	sequentialthinking "github.com/cloudwego/eino-ext/components/tool/sequentialthinking"
+	"github.com/cloudwego/eino/components/tool"
 )
 
 // ToolRegistry 工具注册表.
