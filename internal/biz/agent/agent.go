@@ -13,6 +13,7 @@ import (
 	"github.com/ashwinyue/next-show/internal/model"
 	"github.com/ashwinyue/next-show/internal/pkg/agent/agentic"
 	agentcallbacks "github.com/ashwinyue/next-show/internal/pkg/agent/callbacks"
+	agenttools "github.com/ashwinyue/next-show/internal/pkg/agent/tools"
 	"github.com/ashwinyue/next-show/internal/pkg/models"
 	"github.com/ashwinyue/next-show/internal/pkg/sse"
 	"github.com/ashwinyue/next-show/internal/store"
@@ -78,9 +79,16 @@ func (b *agentBiz) getOrCreateAgent(ctx context.Context, agent *model.Agent) (*a
 		return nil, fmt.Errorf("create agentic model: %w", err)
 	}
 
-	// 构建工具配置 - 简化版，暂时为空
+	// 构建工具配置
+	var tools []tool.BaseTool
+
+	// 添加 Skill 工具
+	skillBackend := agenttools.NewStoreSkillBackend(b.store)
+	skillTool := agenttools.NewSkillTool(skillBackend)
+	tools = append(tools, skillTool)
+
 	toolsConfig := compose.ToolsNodeConfig{
-		Tools: []tool.BaseTool{},
+		Tools: tools,
 	}
 
 	// 创建 Agentic Agent
@@ -106,9 +114,19 @@ func (b *agentBiz) getOrCreateAgent(ctx context.Context, agent *model.Agent) (*a
 func convertToAgenticMessages(session *model.Session, content string) []*schema.AgenticMessage {
 	messages := []*schema.AgenticMessage{}
 
-	// 添加系统提示
+	// 构建系统提示词
+	systemPrompt := ""
+
+	// 添加 Agent 的系统提示词
 	if session.Agent.SystemPrompt != "" {
-		messages = append(messages, schema.SystemAgenticMessage(session.Agent.SystemPrompt))
+		systemPrompt += session.Agent.SystemPrompt + "\n\n"
+	}
+
+	// 添加技能系统提示词
+	systemPrompt += agenttools.GetSystemPrompt()
+
+	if systemPrompt != "" {
+		messages = append(messages, schema.SystemAgenticMessage(systemPrompt))
 	}
 
 	// 添加用户消息

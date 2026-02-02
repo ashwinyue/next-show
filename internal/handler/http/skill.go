@@ -45,12 +45,6 @@ type UpdateSkillRequest struct {
 	IsEnabled        *bool                `json:"is_enabled"`
 }
 
-// ApplySkillRequest 应用 Skill 到 Agent 请求.
-type ApplySkillRequest struct {
-	SkillID   string `json:"skill_id" binding:"required"`
-	Temporary bool   `json:"temporary"`
-}
-
 // CreateSkill 创建 Skill.
 func (h *Handler) CreateSkill(c *gin.Context) {
 	var req CreateSkillRequest
@@ -251,22 +245,4 @@ func (h *Handler) SearchSkills(c *gin.Context) {
 		"page":      page,
 		"page_size": pageSize,
 	})
-}
-
-// ApplySkillToAgent 应用 Skill 到 Agent.
-func (h *Handler) ApplySkillToAgent(c *gin.Context) {
-	agentID := c.Param("id")
-
-	var req ApplySkillRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if err := h.biz.Skills().ApplyToAgent(c.Request.Context(), agentID, req.SkillID, req.Temporary); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "skill applied successfully"})
 }

@@ -308,10 +308,4 @@ func (h *Handler) registerSkillRoutes(r *gin.RouterGroup) {
 		skills.PUT("/:id", h.UpdateSkill)
 		skills.DELETE("/:id", h.DeleteSkill)
 	}
-
-	// Agent 应用 Skill
-	agents := r.Group("/agents")
-	{
-		agents.POST("/:id/apply-skill", h.ApplySkillToAgent)
-	}
 }

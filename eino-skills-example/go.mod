@@ -1,11 +1,12 @@
 module eino-skills-example
 
-go 1.25.5
+go 1.24.7
 
 require (
 	github.com/cloudwego/eino v0.7.25
 	github.com/cloudwego/eino-examples v0.0.0-20260120093034-a05f4e9a5df5
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.8
+	github.com/yargevad/filepathx v1.0.0
 )
 
 require (
@@ -34,7 +35,6 @@ require (
 	github.com/slongfield/pyfmt v0.0.0-20220222012616-ea85ff4c361f // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
-	github.com/yargevad/filepathx v1.0.0 // indirect
 	golang.org/x/arch v0.19.0 // indirect
 	golang.org/x/exp v0.0.0-20250718183923-645b1fa84792 // indirect
 	golang.org/x/sys v0.37.0 // indirect

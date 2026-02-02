@@ -22,9 +22,6 @@ type Biz interface {
 	ListByCategory(ctx context.Context, category string) ([]*model.Skill, error)
 	ListEnabled(ctx context.Context) ([]*model.Skill, error)
 	Search(ctx context.Context, keyword string, page, pageSize int) ([]*model.Skill, int64, error)
-
-	// Agent 集成
-	ApplyToAgent(ctx context.Context, agentID, skillID string, temporary bool) error
 }
 
 type biz struct {
@@ -78,53 +75,4 @@ func (b *biz) ListEnabled(ctx context.Context) ([]*model.Skill, error) {
 func (b *biz) Search(ctx context.Context, keyword string, page, pageSize int) ([]*model.Skill, int64, error) {
 	offset := (page - 1) * pageSize
 	return b.store.Skills().Search(ctx, keyword, offset, pageSize)
-}
-
-// ApplyToAgent 将 Skill 应用到 Agent.
-func (b *biz) ApplyToAgent(ctx context.Context, agentID, skillID string, temporary bool) error {
-	// 1. 加载 Skill
-	skill, err := b.store.Skills().Get(ctx, skillID)
-	if err != nil {
-		return err
-	}
-
-	// 2. 获取 Agent
-	agent, err := b.store.Agents().Get(ctx, agentID)
-	if err != nil {
-		return err
-	}
-
-	// 初始化 Config（如果为 nil）
-	if agent.Config == nil {
-		agent.Config = make(model.JSONMap)
-	}
-
-	// 3. 应用配置
-	if skill.SystemPrompt != "" {
-		agent.SystemPrompt = skill.SystemPrompt
-	}
-	if skill.Instructions != "" {
-		agent.Config["instructions"] = skill.Instructions
-	}
-	if len(skill.ToolIDs) > 0 {
-		agent.Config["tool_ids"] = skill.ToolIDs
-	}
-	if len(skill.KnowledgeBaseIDs) > 0 {
-		agent.Config["knowledge_base_ids"] = skill.KnowledgeBaseIDs
-	}
-	if skill.ModelProvider != "" {
-		agent.ProviderID = skill.ModelProvider
-	}
-	if skill.ModelName != "" {
-		agent.ModelName = skill.ModelName
-	}
-	if skill.Temperature > 0 {
-		agent.Temperature = &skill.Temperature
-	}
-	if skill.MaxIterations > 0 {
-		agent.MaxIterations = skill.MaxIterations
-	}
-
-	// 4. 更新 Agent
-	return b.store.Agents().Update(ctx, agent)
 }
