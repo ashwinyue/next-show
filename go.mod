@@ -3,7 +3,6 @@ module github.com/ashwinyue/next-show
 go 1.24.7
 
 require (
-	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/cloudwego/eino v0.9.0-alpha.2
 	github.com/cloudwego/eino-ext/callbacks/cozeloop v0.1.8
 	github.com/cloudwego/eino-ext/components/document/loader/url v0.0.0-20260129100151-33cdd47ff03a
@@ -17,6 +16,7 @@ require (
 	github.com/cloudwego/eino-ext/components/embedding/openai v0.0.0-20260129100151-33cdd47ff03a
 	github.com/cloudwego/eino-ext/components/model/agenticark v0.1.0-alpha.1
 	github.com/cloudwego/eino-ext/components/model/agenticopenai v0.1.0-alpha.1
+	github.com/cloudwego/eino-ext/components/tool/browseruse v0.0.0-20260129100151-33cdd47ff03a
 	github.com/cloudwego/eino-ext/components/tool/duckduckgo v0.0.0-20260129100151-33cdd47ff03a
 	github.com/cloudwego/eino-ext/components/tool/sequentialthinking v0.0.0-20260129100151-33cdd47ff03a
 	github.com/coze-dev/cozeloop-go v0.1.20
@@ -33,6 +33,7 @@ require (
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.17.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.10.0 // indirect
+	github.com/PuerkitoBio/goquery v1.11.0 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/apache/arrow-go/v18 v18.1.0 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
@@ -50,7 +51,6 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.4.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/cloudwego/eino-ext/components/document/parser/html v0.0.0-20260129100151-33cdd47ff03a // indirect
-	github.com/cloudwego/eino-ext/components/tool/browseruse v0.0.0-20260129100151-33cdd47ff03a // indirect
 	github.com/cloudwego/eino-ext/components/tool/duckduckgo/v2 v2.0.0-20251114071555-14756a18ad37 // indirect
 	github.com/cloudwego/eino-ext/libs/acl/openai v0.1.13 // indirect
 	github.com/corpix/uarand v0.2.0 // indirect
@@ -79,8 +79,8 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.6.0 // indirect
-	github.com/jackc/puddle/v2 v2.2.1 // indirect
+	github.com/jackc/pgx/v5 v5.7.2 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect

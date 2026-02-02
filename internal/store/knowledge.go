@@ -4,11 +4,53 @@ package store
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 
 	"github.com/ashwinyue/next-show/internal/model"
 )
+
+// DistanceFunction represents the distance function for vector similarity search.
+type DistanceFunction string
+
+const (
+	// DistanceCosine uses cosine distance for similarity.
+	DistanceCosine DistanceFunction = "cosine"
+	// DistanceL2 uses Euclidean (L2) distance.
+	DistanceL2 DistanceFunction = "l2"
+	// DistanceIP uses inner product distance.
+	DistanceIP DistanceFunction = "ip"
+)
+
+// String returns the string representation of the distance function.
+func (d DistanceFunction) String() string {
+	return string(d)
+}
+
+// Operator returns the SQL operator for the distance function.
+func (d DistanceFunction) Operator() string {
+	switch d {
+	case DistanceCosine:
+		return "<=>"
+	case DistanceL2:
+		return "<->"
+	case DistanceIP:
+		return "<#>"
+	default:
+		return "<=>"
+	}
+}
+
+// Validate checks if the distance function is valid.
+func (d DistanceFunction) Validate() error {
+	switch d {
+	case DistanceCosine, DistanceL2, DistanceIP:
+		return nil
+	default:
+		return fmt.Errorf("invalid distance function: %s", d)
+	}
+}
 
 // KnowledgeStore 知识库存储接口.
 type KnowledgeStore interface {
@@ -38,8 +80,10 @@ type KnowledgeStore interface {
 	CreateChunks(ctx context.Context, chunks []*model.KnowledgeChunk) error
 	CreateEmbeddings(ctx context.Context, embeddings []*model.Embedding) error
 
-	// Vector Search (pgvector)
+	// Vector Search (pgvector) - 保留原有方法以兼容
 	SearchChunksByVector(ctx context.Context, kbIDs []string, embedding []float32, limit int) ([]*ChunkWithScore, error)
+	// Vector Search (pgvector) - 改进版本，支持更多选项
+	SearchChunksByVectorWithOptions(ctx context.Context, kbIDs []string, embedding []float32, limit int, options ...SearchOptions) ([]*ChunkWithScore, error)
 
 	// BM25 Full-Text Search
 	SearchChunksByFullText(ctx context.Context, kbIDs []string, query string, limit int) ([]*ChunkWithScore, error)
@@ -215,37 +259,54 @@ func (s *knowledgeStore) SearchChunksByKeyword(ctx context.Context, kbIDs []stri
 	return chunks, nil
 }
 
+// SearchOptions 搜索选项
+type SearchOptions struct {
+	// DistanceFunction 距离函数，默认余弦相似度
+	DistanceFunction DistanceFunction
+	// ScoreThreshold 分数阈值，只返回分数 >= threshold的结果
+	ScoreThreshold *float64
+	// WhereClause 自定义 WHERE 条件，例如 "metadata->>'category' = 'tech'"
+	WhereClause string
+}
+
+// SearchChunksByVector 保留原有签名以兼容现有代码
 func (s *knowledgeStore) SearchChunksByVector(ctx context.Context, kbIDs []string, embedding []float32, limit int) ([]*ChunkWithScore, error) {
-	// 使用 pgvector 的余弦相似度搜索
-	// SQL: SELECT c.*, 1 - (e.embedding <=> $1) as score FROM knowledge_chunks c
-	//      JOIN embeddings e ON e.chunk_id = c.id
-	//      WHERE c.knowledge_base_id IN ($2) AND c.is_enabled = true
-	//      ORDER BY e.embedding <=> $1 LIMIT $3
+	return s.SearchChunksByVectorWithOptions(ctx, kbIDs, embedding, limit)
+}
 
-	query := `
-		SELECT c.id, c.knowledge_base_id, c.document_id, c.chunk_index, c.content, 
-		       c.content_hash, c.metadata, c.is_enabled, c.created_at, c.updated_at,
-		       1 - (e.embedding <=> $1::vector) as score
-		FROM knowledge_chunks c
-		JOIN embeddings e ON e.chunk_id = c.id
-		WHERE c.is_enabled = true
-	`
-
-	args := []interface{}{vectorToString(embedding)}
-	argIdx := 2
-
-	if len(kbIDs) > 0 {
-		query += " AND c.knowledge_base_id = ANY($" + itoa(argIdx) + ")"
-		args = append(args, kbIDs)
-		argIdx++
+// SearchChunksByVectorWithOptions 改进的向量搜索（参考 pgvector 最佳实践）
+func (s *knowledgeStore) SearchChunksByVectorWithOptions(ctx context.Context, kbIDs []string, embedding []float32, limit int, options ...SearchOptions) ([]*ChunkWithScore, error) {
+	if len(embedding) == 0 {
+		return nil, fmt.Errorf("embedding vector is empty")
 	}
 
-	query += " ORDER BY e.embedding <=> $1::vector LIMIT $" + itoa(argIdx)
-	args = append(args, limit)
+	if limit <= 0 {
+		limit = 5
+	}
 
+	// 获取搜索选项
+	opts := SearchOptions{
+		DistanceFunction: DistanceCosine,
+	}
+	if len(options) > 0 {
+		opts = options[0]
+	}
+
+	// 验证距离函数
+	if err := opts.DistanceFunction.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid distance function: %w", err)
+	}
+
+	// 构建查询
+	query, args, err := s.buildVectorSearchQuery(kbIDs, embedding, limit, &opts)
+	if err != nil {
+		return nil, fmt.Errorf("build search query: %w", err)
+	}
+
+	// 执行查询
 	rows, err := s.db.WithContext(ctx).Raw(query, args...).Rows()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("execute search query: %w", err)
 	}
 	defer rows.Close()
 
@@ -258,15 +319,139 @@ func (s *knowledgeStore) SearchChunksByVector(ctx context.Context, kbIDs []strin
 			&chunk.ContentHash, &chunk.Metadata, &chunk.IsEnabled, &chunk.CreatedAt, &chunk.UpdatedAt,
 			&score,
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan result: %w", err)
 		}
 		results = append(results, &ChunkWithScore{
 			Chunk: &chunk,
-			Score: score,
+			Score: s.calculateScore(score, opts.DistanceFunction),
 		})
 	}
 
 	return results, nil
+}
+
+// buildVectorSearchQuery 构建向量搜索 SQL
+func (s *knowledgeStore) buildVectorSearchQuery(kbIDs []string, queryVector []float32, limit int, opts *SearchOptions) (string, []interface{}, error) {
+	// 验证表名（防止 SQL 注入）
+	if err := validateIdentifier("knowledge_chunks"); err != nil {
+		return "", nil, fmt.Errorf("invalid table name: %w", err)
+	}
+
+	op := opts.DistanceFunction.Operator()
+
+	// 构建基础查询
+	args := []interface{}{vectorToString(queryVector)}
+	query := fmt.Sprintf(`
+		SELECT c.id, c.knowledge_base_id, c.document_id, c.chunk_index, c.content,
+		       c.content_hash, c.metadata, c.is_enabled, c.created_at, c.updated_at,
+		       (e.embedding %s $1::vector) as distance
+		FROM knowledge_chunks c
+		JOIN embeddings e ON e.chunk_id = c.id
+		WHERE c.is_enabled = true`, op)
+
+	// 添加知识库过滤
+	if len(kbIDs) > 0 {
+		query += " AND c.knowledge_base_id = ANY($2)"
+		args = append(args, kbIDs)
+	}
+
+	// 添加自定义 WHERE 条件
+	if opts.WhereClause != "" {
+		// 简单的 SQL 注入检测
+		if !isSafeSQL(opts.WhereClause) {
+			return "", nil, fmt.Errorf("unsafe where clause: %s", opts.WhereClause)
+		}
+		query += " AND " + opts.WhereClause
+	}
+
+	// 添加分数阈值过滤
+	if opts.ScoreThreshold != nil && *opts.ScoreThreshold > 0 {
+		thresholdDistance := s.calculateThresholdDistance(*opts.ScoreThreshold, opts.DistanceFunction)
+		query += fmt.Sprintf(" AND (e.embedding %s $%d) < %f", op, len(args)+1, thresholdDistance)
+		args = append(args, thresholdDistance)
+	}
+
+	// 添加排序和限制
+	query += fmt.Sprintf(" ORDER BY e.embedding %s $1::vector LIMIT $%d", op, len(args)+1)
+	args = append(args, limit)
+
+	return query, args, nil
+}
+
+// calculateScore 计算相似度分数
+func (s *knowledgeStore) calculateScore(distance float64, distanceFunc DistanceFunction) float64 {
+	switch distanceFunc {
+	case DistanceCosine:
+		// 余弦距离：分数 = 1 - 距离
+		return 1 - distance
+	case DistanceL2, DistanceIP:
+		// L2 和 IP：使用倒数作为分数
+		if distance == 0 {
+			return 1.0
+		}
+		return 1.0 / (1.0 + distance)
+	default:
+		return 1 - distance
+	}
+}
+
+// calculateThresholdDistance 计算阈值对应的距离值
+func (s *knowledgeStore) calculateThresholdDistance(scoreThreshold float64, distanceFunc DistanceFunction) float64 {
+	switch distanceFunc {
+	case DistanceCosine:
+		// 余弦：距离 = 1 - 分数
+		return 1 - scoreThreshold
+	case DistanceL2, DistanceIP:
+		// L2 和 IP：距离已经是正确尺度
+		return scoreThreshold
+	default:
+		return scoreThreshold
+	}
+}
+
+// validateIdentifier validates SQL identifiers to prevent SQL injection.
+// PostgreSQL identifiers must start with a letter or underscore, and contain only letters, digits, and underscores.
+func validateIdentifier(name string) error {
+	if name == "" {
+		return fmt.Errorf("identifier cannot be empty")
+	}
+
+	// Check PostgreSQL naming rules for unquoted identifiers
+	for i, c := range name {
+		isLetter := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+		isDigit := c >= '0' && c <= '9'
+		isUnderscore := c == '_'
+
+		if i == 0 && !isLetter && c != '_' {
+			return fmt.Errorf("identifier must start with a letter or underscore: %s", name)
+		}
+
+		if !isLetter && !isDigit && !isUnderscore {
+			return fmt.Errorf("identifier contains invalid character: %s", name)
+		}
+	}
+
+	return nil
+}
+
+// quoteIdentifier quotes a PostgreSQL identifier.
+func quoteIdentifier(name string) string {
+	// Wrap in double quotes to safely use any valid identifier
+	return "\"" + name + "\""
+}
+
+// isSafeSQL 检查 SQL 片段是否安全（简单的安全检查）
+func isSafeSQL(sql string) bool {
+	// 检查危险关键字
+	dangerous := []string{"DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "CREATE", "EXEC", "EXECUTE"}
+	upperSQL := fmt.Sprintf(" %s ", strings.ToUpper(sql))
+
+	for _, keyword := range dangerous {
+		if strings.Contains(upperSQL, fmt.Sprintf(" %s ", keyword)) {
+			return false
+		}
+	}
+	return true
 }
 
 // SearchChunksByFullText 使用 PostgreSQL 全文搜索 (BM25-like).
