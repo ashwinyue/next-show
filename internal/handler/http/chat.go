@@ -12,19 +12,19 @@ import (
 
 // AgentChatRequest Agent 聊天请求（对齐 WeKnora）.
 type AgentChatRequest struct {
-	Query               string   `json:"query" binding:"required"`
-	KnowledgeBaseIDs    []string `json:"knowledge_base_ids,omitempty"`
-	AgentEnabled        bool     `json:"agent_enabled,omitempty"`
-	WebSearchEnabled    bool     `json:"web_search_enabled,omitempty"`
-	MCPServiceIDs       []string `json:"mcp_service_ids,omitempty"`
-	MentionedItems      []MentionedItem `json:"mentioned_items,omitempty"`
+	Query            string          `json:"query" binding:"required"`
+	KnowledgeBaseIDs []string        `json:"knowledge_base_ids,omitempty"`
+	AgentEnabled     bool            `json:"agent_enabled,omitempty"`
+	WebSearchEnabled bool            `json:"web_search_enabled,omitempty"`
+	MCPServiceIDs    []string        `json:"mcp_service_ids,omitempty"`
+	MentionedItems   []MentionedItem `json:"mentioned_items,omitempty"`
 }
 
 // MentionedItem 提及的项目（知识库、文档等）.
 type MentionedItem struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Type  string `json:"type"`
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Type   string `json:"type"`
 	KbType string `json:"kb_type,omitempty"`
 }
 

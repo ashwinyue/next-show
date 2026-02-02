@@ -21,10 +21,10 @@ func (h *Handler) GetWebSearchConfig(c *gin.Context) {
 
 // UpdateWebSearchConfigRequest 更新网络搜索配置请求.
 type UpdateWebSearchConfigRequest struct {
-	Provider    string   `json:"provider"`
-	APIKey      string   `json:"api_key,omitempty"`
-	MaxResults  int      `json:"max_results"`
-	Blacklist   []string `json:"blacklist,omitempty"`
+	Provider   string   `json:"provider"`
+	APIKey     string   `json:"api_key,omitempty"`
+	MaxResults int      `json:"max_results"`
+	Blacklist  []string `json:"blacklist,omitempty"`
 }
 
 // UpdateWebSearchConfig 更新网络搜索配置（对齐 WeKnora）.

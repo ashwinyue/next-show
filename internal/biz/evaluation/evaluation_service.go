@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/ashwinyue/next-show/internal/biz/evaluation/metrics"
-	agentcallbacks "github.com/ashwinyue/next-show/internal/pkg/agent/callbacks"
 	"github.com/ashwinyue/next-show/internal/model"
+	agentcallbacks "github.com/ashwinyue/next-show/internal/pkg/agent/callbacks"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -23,7 +23,7 @@ type AgentRCaller interface {
 
 // Service 评估服务.
 type Service struct {
-	db         *gorm.DB
+	db          *gorm.DB
 	agentCaller AgentRCaller // 用于调用 RAG Agent
 }
 
